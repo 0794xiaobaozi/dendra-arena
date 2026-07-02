@@ -2,6 +2,21 @@
 
 基于 **PySide6 + OpenCV** 的桌面 GUI 视频预览程序。支持本机摄像头枚举、开始/停止预览、截图保存与状态栏显示。
 
+## 获取源码
+
+项目使用 Git submodule 固定 RpiBeh 依赖。首次克隆请使用：
+
+```powershell
+git clone --recurse-submodules https://github.com/0794xiaobaozi/dendra-arena.git
+cd dendra-arena
+```
+
+如果已经普通克隆，再执行：
+
+```powershell
+git submodule update --init --recursive
+```
+
 ## 环境
 
 - [Pixi](https://pixi.sh/latest/installation/)（推荐，无需 Conda）
