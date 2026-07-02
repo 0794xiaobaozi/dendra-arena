@@ -1,0 +1,10 @@
+schema_version: 1
+
+protocol:
+  id: 10s_1p0mA_single
+  name: 10s实验-单次10s电击(1.0mA)
+  total_duration_sec: 10
+  shocks:
+    - time_sec: 0
+      current_mA: 1.0
+      duration: 10

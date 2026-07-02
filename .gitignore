@@ -1,0 +1,37 @@
+# Python caches and local environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pixi/
+.venv/
+.venv_*/
+venv/
+
+# Build and installer output
+build/
+dist/
+installer/Output/
+*.egg-info/
+
+# Runtime logs and crash reports
+*.log
+livefreeze_crash.log
+
+# Experiment output (never commit subject/session data)
+data/
+sessions/
+LiveFreeze_*/
+*.mp4
+*_freeze.csv
+*_frames.csv
+*_session.json
+session_summary.csv
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini

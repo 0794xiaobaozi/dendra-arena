@@ -1,0 +1,16 @@
+schema_version: 1
+
+protocol:
+  id: 9min_4_5_6_shock
+  name: 9分钟-4/5/6分电击(1.0mA)
+  total_duration_sec: 540
+  shocks:
+    - time_sec: 240
+      current_mA: 1.0
+      duration: 3
+    - time_sec: 300
+      current_mA: 1.0
+      duration: 3
+    - time_sec: 360
+      current_mA: 1.0
+      duration: 3
