@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 
 from arena_backend.application import BackendApplication
-from arena_backend.camera import _BehaviorLatch
+from arena_backend.camera import _BehaviorLatch, _fit_preview_size
 from arena_backend.experiment import ExperimentRunner
 from arena_backend.schemas import parse_session
 from arena_backend.schemas import parse_camera
@@ -35,6 +35,16 @@ def test_behavior_latch_emits_balanced_transition_events():
     assert latch.update(0.0, 1.1) == ("freeze", ["freeze_start"])
     assert latch.update(0.2, 2.0) == ("moving", [])
     assert latch.update(0.2, 3.1) == ("moving", ["freeze_end", "moving_start"])
+
+
+@pytest.mark.parametrize(("source", "expected"), [
+    ((1920, 1080), (640, 360)),
+    ((640, 480), (480, 360)),
+    ((1280, 720), (640, 360)),
+    ((320, 240), (320, 240)),
+])
+def test_preview_size_preserves_source_aspect_ratio(source, expected):
+    assert _fit_preview_size(*source) == expected
 
 
 def test_completed_session_writes_atomic_manifest(tmp_path: Path):

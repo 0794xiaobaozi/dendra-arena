@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Base permissions for the arena main window",
   "windows": ["main"],
-  "permissions": ["core:default", "core:window:allow-start-dragging", "core:window:allow-minimize", "core:window:allow-close"]
+  "permissions": ["core:default", "core:window:allow-start-dragging", "core:window:allow-minimize", "core:window:allow-inner-size", "core:window:allow-scale-factor", "core:window:allow-set-size", "core:window:allow-center", "core:window:allow-close"]
 }

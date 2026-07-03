@@ -1,4 +1,5 @@
-import { Activity, Check, ChevronDown, CircleStop, Database, HardDrive, Minus, MonitorUp, Play, Plus, Radio, Square, Thermometer, X } from "lucide-react";
+import { useState } from "react";
+import { Activity, Check, ChevronDown, CircleStop, Database, HardDrive, Minus, MonitorUp, PanelLeftClose, PanelLeftOpen, PanelRightOpen, Play, Plus, Radio, Square, Thermometer, X } from "lucide-react";
 import { CameraWall } from "./CameraWall";
 import { BottomMonitorStrip } from "./MonitorStrip";
 import { RightProtocolPanel } from "./ProtocolPanel";
@@ -17,7 +18,7 @@ function CustomTitleBar() {
       </div>
       <div className="window-controls">
         <button aria-label="Minimize" onClick={() => void windowAction("minimize")}><Minus size={15} /></button>
-        <button aria-label="Fixed window size" title="Window size is fixed at 1440 × 1000" disabled><Square size={12} /></button>
+        <button aria-label="Toggle window size" title="Switch between 1152 × 800 and 1440 × 1000" onClick={() => void windowAction("toggle-size")}><Square size={12} /></button>
         <button className="close" aria-label="Close" onClick={() => void windowAction("close")}><X size={16} /></button>
       </div>
     </header>
@@ -46,11 +47,11 @@ function TopNavigationBar() {
   );
 }
 
-function CameraList() {
+function CameraList({ onCollapse }: { onCollapse: () => void }) {
   const { cameras, selectedBoxId, selectBox, toggleCamera } = useArenaStore();
   return (
     <section className="camera-list-section">
-      <div className="section-heading"><span>CAMERAS</span><button className="icon-button"><Plus size={16} /></button></div>
+      <div className="section-heading"><span>CAMERAS</span><div className="section-actions"><button className="icon-button" aria-label="Add camera"><Plus size={16} /></button><button className="icon-button" aria-label="Collapse camera sidebar" onClick={onCollapse}><PanelLeftClose size={15} /></button></div></div>
       <div className="camera-list">
         {cameras.map((camera) => (
           <button key={camera.boxId} className={`camera-list-item ${selectedBoxId === camera.boxId ? "selected" : ""}`} onClick={() => selectBox(camera.boxId)}>
@@ -86,7 +87,7 @@ function PreflightChecklist() {
   );
 }
 
-function LeftSidebar() {
+function LeftSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
   const { appState, connectPreview } = useArenaStore();
   const connected = appState !== "idle";
   const handlePreview = async () => {
@@ -99,13 +100,15 @@ function LeftSidebar() {
     }
   };
   return (
-    <aside className="left-sidebar">
-      <CameraList />
-      <PreflightChecklist />
-      <div className="connect-block">
-        <button className="connect-button" onClick={() => void handlePreview()}><Radio size={19} />{connected ? "Preview Connected" : "Connect Preview"}</button>
-        <span><i className={`status-dot ${connected ? "ok" : ""}`} />{connected ? "All cameras streaming" : "Cameras disconnected"}</span>
-      </div>
+    <aside className={`left-sidebar ${collapsed ? "collapsed" : ""}`}>
+      {collapsed ? <button className="panel-rail-button" aria-label="Expand camera sidebar" onClick={onToggle}><PanelLeftOpen size={18} /><span>CAMERAS</span></button> : <>
+        <CameraList onCollapse={onToggle} />
+        <PreflightChecklist />
+        <div className="connect-block">
+          <button className="connect-button" onClick={() => void handlePreview()}><Radio size={19} />{connected ? "Preview Connected" : "Connect Preview"}</button>
+          <span><i className={`status-dot ${connected ? "ok" : ""}`} />{connected ? "All cameras streaming" : "Cameras disconnected"}</span>
+        </div>
+      </>}
     </aside>
   );
 }
@@ -144,21 +147,21 @@ function SystemStatusBar() {
 }
 
 export function AppShell() {
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [rightCollapsed, setRightCollapsed] = useState(false);
   return (
     <div className="app-shell">
       <CustomTitleBar />
       <TopNavigationBar />
-      <main className="dashboard-grid">
-        <LeftSidebar />
+      <main className={`dashboard-grid ${leftCollapsed ? "left-collapsed" : ""} ${rightCollapsed ? "right-collapsed" : ""}`}>
+        <LeftSidebar collapsed={leftCollapsed} onToggle={() => setLeftCollapsed((value) => !value)} />
         <section className="run-workspace">
-          <div className="run-top-row">
-            <CameraWall />
-            <RightProtocolPanel />
-          </div>
+          <CameraWall />
           <BottomMonitorStrip />
-          <RunActions />
         </section>
+        {rightCollapsed ? <aside className="right-panel-rail"><button className="panel-rail-button" aria-label="Expand protocol panel" onClick={() => setRightCollapsed(false)}><PanelRightOpen size={18} /><span>PROTOCOL</span></button></aside> : <RightProtocolPanel onCollapse={() => setRightCollapsed(true)} />}
       </main>
+      <RunActions />
       <SystemStatusBar />
     </div>
   );

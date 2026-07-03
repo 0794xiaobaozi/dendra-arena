@@ -239,7 +239,13 @@ class CameraRuntime:
                 for behavior_event in behavior_events:
                     self._event_sink("behavior_event", {"boxId": self.config.box_id, "timeSec": now, "type": behavior_event})
                 if monotonic_now - last_preview_at >= 1 / 12:
-                    preview = cv2.resize(frame, (640, 360), interpolation=cv2.INTER_AREA)
+                    frame_height, frame_width = frame.shape[:2]
+                    preview_width, preview_height = _fit_preview_size(frame_width, frame_height)
+                    preview = frame if (preview_width, preview_height) == (frame_width, frame_height) else cv2.resize(
+                        frame,
+                        (preview_width, preview_height),
+                        interpolation=cv2.INTER_AREA,
+                    )
                     encoded, buffer = cv2.imencode(".jpg", preview, [cv2.IMWRITE_JPEG_QUALITY, 72])
                     if encoded:
                         self._event_sink("camera_frame", {"boxId": self.config.box_id, "encoding": "jpeg-base64", "data": base64.b64encode(buffer).decode("ascii")})
@@ -257,3 +263,10 @@ class CameraRuntime:
             with self._frame_lock:
                 self._latest_frame = None
             self._event_sink("camera_stopped", {"boxId": self.config.box_id})
+
+def _fit_preview_size(width: int, height: int, max_width: int = 640, max_height: int = 360) -> tuple[int, int]:
+    """Fit a frame inside the preview bounds without changing its aspect ratio."""
+    if width <= 0 or height <= 0:
+        raise ValueError("frame dimensions must be positive")
+    scale = min(max_width / width, max_height / height, 1.0)
+    return max(1, round(width * scale)), max(1, round(height * scale))

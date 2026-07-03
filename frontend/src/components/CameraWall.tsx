@@ -70,5 +70,5 @@ function CameraCard({ camera }: { camera: CameraSession }) {
 export function CameraWall() {
   const allCameras = useArenaStore((state) => state.cameras);
   const cameras = allCameras.filter((camera) => camera.enabled);
-  return <div className="camera-wall" data-count={cameras.length}>{cameras.map((camera) => <CameraCard key={camera.boxId} camera={camera} />)}</div>;
+  return <div className="camera-wall" data-count={cameras.length}>{cameras.map((camera) => <div className="camera-slot" key={camera.boxId}><CameraCard camera={camera} /></div>)}</div>;
 }

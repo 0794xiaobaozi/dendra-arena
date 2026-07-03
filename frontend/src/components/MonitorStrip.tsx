@@ -10,14 +10,14 @@ function ExperimentTimeline() {
   const { shocks, elapsedSec, totalDurationSec } = useArenaStore();
   const visible = shocks.filter((shock) => shock.timeSec <= totalDurationSec);
   return (
-    <section className="monitor-card timeline-card card"><h4>EXPERIMENT TIMELINE</h4><div className="timeline-legend"><span><Zap size={14} fill="#f59e0b" />Shock (2.0 s)</span><span><i />Shock Duration</span></div><div className="timeline-plot"><div className="timeline-track" />{Array.from({ length: 9 }, (_, index) => <span className="tick" key={index} style={{ left: `${index * 12.5}%` }}><i />{index * 60} s</span>)}{visible.map((shock) => <span className="shock-marker" key={shock.id} style={{ left: `${(shock.timeSec / totalDurationSec) * 100}%` }}><Zap size={18} fill="#f59e0b" /><i /></span>)}</div><div className="timeline-summary"><span><small>Elapsed</small><strong className="blue-text">{formatClock(elapsedSec)}</strong></span><span><small>Remaining</small><strong>{formatClock(totalDurationSec - elapsedSec)}</strong></span><span><small>Total Duration</small><strong>{formatClock(totalDurationSec)}</strong></span></div></section>
+    <section className="monitor-card timeline-card card"><h4>EXPERIMENT TIMELINE</h4><div className="timeline-legend"><span><Zap size={14} fill="#f59e0b" />Shock</span><span><i />Shock Duration</span></div><div className="timeline-plot"><div className="timeline-track" />{Array.from({ length: 9 }, (_, index) => <span className="tick" key={index} style={{ left: `${index * 12.5}%` }}><i />{index * 60} s</span>)}{visible.map((shock) => <span className="shock-marker" key={shock.id} style={{ left: `${(shock.timeSec / totalDurationSec) * 100}%` }}><Zap size={18} fill="#f59e0b" /><i /></span>)}</div><div className="timeline-summary"><span><small>Elapsed</small><strong className="blue-text">{formatClock(elapsedSec)}</strong></span><span><small>Remaining</small><strong>{formatClock(totalDurationSec - elapsedSec)}</strong></span><span><small>Total Duration</small><strong>{formatClock(totalDurationSec)}</strong></span></div></section>
   );
 }
 
 function RecentEvents() {
   const allEvents = useArenaStore((state) => state.events);
-  const events = allEvents.slice(-5);
-  return <section className="monitor-card events-card card"><h4>RECENT EVENTS</h4><div className="event-list">{events.map((event) => <div key={event.id}><time>{event.timeSec.toFixed(3)} s</time><i /><strong>{event.boxLabel}</strong><span>{event.label}</span><em>{event.durationSec ? `${event.durationSec.toFixed(2)} s` : ""}</em></div>)}</div><button className="view-events">View all events...<ChevronRight size={15} /></button></section>;
+  const events = allEvents.slice(-100);
+  return <section className="monitor-card events-card card"><h4>RECENT EVENTS</h4><div className="event-list"><div className="event-grid">{events.map((event) => <div className="event-row" key={event.id}><time>{event.timeSec.toFixed(3)} s</time><i /><strong>{event.boxLabel}</strong><span>{event.label}</span><em>{event.durationSec ? `${event.durationSec.toFixed(2)} s` : ""}</em></div>)}</div></div><button className="view-events">View all events...<ChevronRight size={15} /></button></section>;
 }
 
 function MotionChart() {

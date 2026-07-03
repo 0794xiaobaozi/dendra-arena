@@ -123,11 +123,21 @@ export async function captureSnapshotCommand(boxId: string) {
   return sendBackendCommand("capture_snapshot", { boxId, outputDir: useArenaStore.getState().saveDir });
 }
 
-export async function windowAction(action: "minimize" | "close") {
+export async function windowAction(action: "minimize" | "toggle-size" | "close") {
   if (!isTauri()) return;
   const { getCurrentWindow } = await import("@tauri-apps/api/window");
   const appWindow = getCurrentWindow();
   if (action === "minimize") await appWindow.minimize();
+  if (action === "toggle-size") {
+    const [{ LogicalSize }, size, scaleFactor] = await Promise.all([
+      import("@tauri-apps/api/dpi"),
+      appWindow.innerSize(),
+      appWindow.scaleFactor(),
+    ]);
+    const isLarge = size.width / scaleFactor > 1296;
+    await appWindow.setSize(new LogicalSize(isLarge ? 1152 : 1440, isLarge ? 800 : 1000));
+    await appWindow.center();
+  }
   if (action === "close") await appWindow.close();
 }
 
