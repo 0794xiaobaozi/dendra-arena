@@ -32,6 +32,16 @@ session_summary.csv
 # Editors and operating systems
 .idea/
 .vscode/
+.edge-profile/
+node_modules/
+frontend/dist/
+frontend/run-page.png
+frontend/inspection-*.png
+frontend/layout-*.png
+*.tsbuildinfo
+frontend-vite.log
+src-tauri/target/
+src-tauri/gen/
 .DS_Store
 Thumbs.db
 desktop.ini

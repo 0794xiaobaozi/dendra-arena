@@ -1,4 +1,32 @@
-# LiveFreeze — 视频预览
+# arena
+
+> `dev` 正在进行 1.0 架构重构：React 负责 UI，Tauri 负责桌面窗口与进程桥接，Python 负责摄像头、Freeze 检测、录像、实验时钟和电刺激。旧 LiveFreeze PySide6 客户端暂时保留用于行为对照。
+
+## 1.0 开发预览
+
+```powershell
+npm install
+npm run dev
+```
+
+浏览器预览使用模拟遥测；在 Tauri 中运行时，前端会自动启动 `backend/arena_backend` 并接收真实事件。生产构建需要先安装 Rust：
+
+```powershell
+rustup toolchain install stable
+npm run tauri dev
+```
+
+验证前端与新后端：
+
+```powershell
+npm run check
+$env:PYTHONPATH="backend"
+pixi run python -m pytest backend/tests -q
+```
+
+架构和通信契约见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)。
+
+## Legacy PySide6 client
 
 基于 **PySide6 + OpenCV** 的桌面 GUI 视频预览程序。支持本机摄像头枚举、开始/停止预览、截图保存与状态栏显示。
 
