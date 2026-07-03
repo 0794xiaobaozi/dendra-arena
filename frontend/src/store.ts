@@ -25,7 +25,7 @@ interface ArenaStore {
 }
 
 export const useArenaStore = create<ArenaStore>((set) => ({
-  page: "run",
+  page: "setup",
   appState: "previewing",
   cameras: demoCameras,
   selectedBoxId: "box-1",

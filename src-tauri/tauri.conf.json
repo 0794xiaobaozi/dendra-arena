@@ -13,8 +13,8 @@
     "windows": [
       {
         "title": "arena",
-        "width": 1152,
-        "height": 800,
+        "width": 1440,
+        "height": 1000,
         "minWidth": 1152,
         "minHeight": 800,
         "maxWidth": 1440,

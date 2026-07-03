@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Activity, Check, ChevronDown, CircleStop, Database, HardDrive, Minus, MonitorUp, PanelLeftClose, PanelLeftOpen, PanelRightOpen, Play, Plus, Radio, Square, Thermometer, X } from "lucide-react";
+import { Activity, Check, ChevronDown, CircleStop, Database, HardDrive, Minus, MonitorUp, PanelLeftClose, PanelLeftOpen, PanelRightOpen, Play, Plus, Radio, Settings2, Square, Thermometer, X } from "lucide-react";
 import { CameraWall } from "./CameraWall";
 import { BottomMonitorStrip } from "./MonitorStrip";
 import { RightProtocolPanel } from "./ProtocolPanel";
+import { SetupPage } from "./SetupPage";
 import { useArenaStore } from "../store";
 import type { AppPage } from "../types";
 import { previewCommand, startExperimentCommand, stopCommand, windowAction } from "../backend";
@@ -33,16 +34,12 @@ function TopNavigationBar() {
       <div />
       <div className="segmented page-tabs">
         {(Object.keys(PAGE_LABELS) as AppPage[]).map((item) => (
-          <button key={item} className={page === item ? "active" : ""} disabled={item !== "run"} onClick={() => setPage(item)}>{PAGE_LABELS[item]}</button>
+          <button key={item} className={page === item ? "active" : ""} disabled={item === "review"} onClick={() => setPage(item)}>{PAGE_LABELS[item]}</button>
         ))}
       </div>
-      <div className="global-summary">
-        <span className="run-status"><i className="status-dot ok" />{ready}</span>
-        <span className="divider" />
-        <span>Protocol: <strong>Fear Conditioning v2</strong></span>
-        <span className="divider" />
-        <span className="save-summary">Save to: <strong>{saveDir}</strong></span>
-      </div>
+      {page === "setup" ? <div className="global-summary setup-global-summary"><span><Settings2 size={14} />Settings</span><span className="system-ok-badge"><i className="status-dot ok" />System OK</span></div> : <div className="global-summary">
+          <span className="run-status"><i className="status-dot ok" />{ready}</span><span className="divider" /><span>Protocol: <strong>Fear Conditioning v2</strong></span><span className="divider" /><span className="save-summary">Save to: <strong>{saveDir}</strong></span>
+        </div>}
     </nav>
   );
 }
@@ -147,22 +144,20 @@ function SystemStatusBar() {
 }
 
 export function AppShell() {
+  const { page, setPage } = useArenaStore();
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   return (
     <div className="app-shell">
       <CustomTitleBar />
       <TopNavigationBar />
-      <main className={`dashboard-grid ${leftCollapsed ? "left-collapsed" : ""} ${rightCollapsed ? "right-collapsed" : ""}`}>
-        <LeftSidebar collapsed={leftCollapsed} onToggle={() => setLeftCollapsed((value) => !value)} />
-        <section className="run-workspace">
-          <CameraWall />
-          <BottomMonitorStrip />
-        </section>
-        {rightCollapsed ? <aside className="right-panel-rail"><button className="panel-rail-button" aria-label="Expand protocol panel" onClick={() => setRightCollapsed(false)}><PanelRightOpen size={18} /><span>PROTOCOL</span></button></aside> : <RightProtocolPanel onCollapse={() => setRightCollapsed(true)} />}
-      </main>
-      <RunActions />
-      <SystemStatusBar />
+      {page === "setup" ? <SetupPage onReady={() => setPage("run")} /> : page === "run" ? <>
+        <main className={`dashboard-grid ${leftCollapsed ? "left-collapsed" : ""} ${rightCollapsed ? "right-collapsed" : ""}`}>
+          <LeftSidebar collapsed={leftCollapsed} onToggle={() => setLeftCollapsed((value) => !value)} />
+          <section className="run-workspace"><CameraWall /><BottomMonitorStrip /></section>
+          {rightCollapsed ? <aside className="right-panel-rail"><button className="panel-rail-button" aria-label="Expand protocol panel" onClick={() => setRightCollapsed(false)}><PanelRightOpen size={18} /><span>PROTOCOL</span></button></aside> : <RightProtocolPanel onCollapse={() => setRightCollapsed(true)} />}
+        </main><RunActions /><SystemStatusBar />
+      </> : <section className="review-placeholder"><Database size={28} /><h2>Review</h2><p>Review development is intentionally paused.</p></section>}
     </div>
   );
 }

@@ -36,6 +36,27 @@ try {
   page.on("pageerror", (error) => runtimeErrors.push(error.message));
   await page.goto(url, { waitUntil: "networkidle" });
   const expectedDisk = Number(statfsSync(existsSync("C:\\") ? "C:\\" : ".").bavail * statfsSync(existsSync("C:\\") ? "C:\\" : ".").bsize) / 1024 ** 3;
+  if (!(await page.getByRole("button", { name: "Setup", exact: true }).isEnabled())) throw new Error("Setup must be enabled");
+  if (!(await page.locator(".setup-shell").isVisible()) || !(await page.getByRole("button", { name: "Session Setup", exact: true }).isVisible())) throw new Error("Session Setup must be the default development page");
+  const setupColumns = await Promise.all([".session-left", ".box-config-panel", ".session-right"].map((selector) => page.locator(selector).boundingBox()));
+  if (setupColumns.some((bounds) => !bounds) || setupColumns[0].x + setupColumns[0].width > setupColumns[1].x + 1 || setupColumns[1].x + setupColumns[1].width > setupColumns[2].x + 1) throw new Error("Session Setup must use ordered left, center, and right columns");
+  const setupOverflow = await page.locator(".session-setup-layout").evaluate((element) => ({ x: element.scrollWidth > element.clientWidth + 1, y: element.scrollHeight > element.clientHeight + 1 }));
+  if (setupOverflow.x || setupOverflow.y) throw new Error("Session Setup shell must fit the 1440x1000 development viewport");
+  const setupStatusText = await page.locator(".setup-system-card").textContent();
+  if (!setupStatusText.includes(`${expectedDisk.toFixed(1)} GB`)) throw new Error("Setup disk space must use the real local drive value");
+  await page.locator(".setup-box-item").nth(1).click();
+  if (await page.locator(".target-box-card select").inputValue() !== "box-2" || !(await page.locator(".box-config-header").textContent()).includes("Box B")) throw new Error("Session Setup box selection must synchronize all three columns");
+  await page.locator(".experiment-card input").first().fill("Persistent Session Draft");
+  const quickCardBounds = await page.locator(".quick-settings-card").boundingBox();
+  const shockToggleBounds = await page.getByRole("switch", { name: "Enable shock for selected box" }).boundingBox();
+  if (!quickCardBounds || !shockToggleBounds || shockToggleBounds.y + shockToggleBounds.height > quickCardBounds.y + quickCardBounds.height + 1) throw new Error("Quick Settings controls must remain inside their card");
+  const rightPanelMetrics = await page.locator(".session-right").evaluate((element) => ({ scrollHeight: element.scrollHeight, clientHeight: element.clientHeight }));
+  if (rightPanelMetrics.scrollHeight > rightPanelMetrics.clientHeight + 1) throw new Error(`Session Setup right panel must fit all cards at 1440x1000: ${JSON.stringify(rightPanelMetrics)}`);
+  await page.getByRole("button", { name: "Protocol Lab", exact: true }).click();
+  if (await page.locator(".protocol-registry").count() !== 1 || await page.locator(".protocol-editor").count() !== 1 || await page.locator(".protocol-inspector").count() !== 1) throw new Error("Protocol Lab must expose registry, editor, and inspector columns");
+  await page.getByRole("button", { name: "Session Setup", exact: true }).click();
+  if (await page.locator(".experiment-card input").first().inputValue() !== "Persistent Session Draft") throw new Error("Session draft must survive Protocol Lab navigation");
+  await page.getByRole("button", { name: "Run", exact: true }).click();
   const statusText = await page.locator(".system-statusbar").textContent();
   if (!statusText.includes(`${expectedDisk.toFixed(1)} GB free`)) throw new Error("Disk space must match the local save drive");
   if (await page.locator(".camera-card").count() !== 4) throw new Error("Run page must show four camera cards");
@@ -74,7 +95,7 @@ try {
   if (await page.locator(".camera-card.selected h3").textContent() !== "Box B") throw new Error("Box selection is not synchronized");
   await page.locator(".motion-tabs button").nth(3).click();
   if (await page.locator(".motion-tabs button.active").textContent() !== "Box D") throw new Error("Motion selection must remain independent");
-  if (await page.getByRole("button", { name: "Setup", exact: true }).isEnabled()) throw new Error("Setup must stay disabled during Run-only development");
+  if (!(await page.getByRole("button", { name: "Setup", exact: true }).isEnabled())) throw new Error("Setup must remain available from Run");
   if (await page.getByRole("button", { name: "Review", exact: true }).isEnabled()) throw new Error("Review must stay disabled during Run-only development");
   if (!(await page.getByRole("button", { name: "Toggle window size" }).isEnabled())) throw new Error("Small/large window toggle must be enabled");
   const recentEventsLayout = await page.locator(".events-card").evaluate((card) => {
