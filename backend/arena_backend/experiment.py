@@ -9,10 +9,11 @@ from typing import Any
 
 from .camera import CameraRuntime, EventSink
 from .schemas import CameraConfig, SessionConfig
+from .stimulator import StimulatorController
 
 
 class ExperimentRunner:
-    def __init__(self, event_sink: EventSink):
+    def __init__(self, event_sink: EventSink, stimulator: StimulatorController | None = None):
         self._event_sink = event_sink
         self._lock = threading.RLock()
         self._state = "idle"
@@ -21,6 +22,7 @@ class ExperimentRunner:
         self._session: SessionConfig | None = None
         self._clock_thread: threading.Thread | None = None
         self._clock_stop = threading.Event()
+        self._stimulator = stimulator
 
     @property
     def state(self) -> str:
@@ -106,6 +108,8 @@ class ExperimentRunner:
             if self._session is not None:
                 session_dir = Path(self._session.save_dir) / self._session.session_id
                 self._write_manifest(session_dir, "failed" if errors else "completed", errors)
+                if self._session.enable_stimulator and self._stimulator is not None:
+                    self._stimulator.disarm()
             self._session = None
             self._started_at = None
             self._state = "error" if errors else "idle"
@@ -135,10 +139,17 @@ class ExperimentRunner:
                 if shock.id in fired or elapsed < shock.time_sec:
                     continue
                 fired.add(shock.id)
-                # Stimulation remains fail-closed until an armed stimulator is
-                # injected. The global scheduler still records each due event once.
-                status = "pending_hardware" if session.enable_stimulator else "skipped_unarmed"
-                self._event_sink("shock_event", {"id": shock.id, "scheduledTimeSec": shock.time_sec, "actualTimeSec": elapsed, "status": status})
+                status = "skipped_unarmed"
+                result: dict[str, Any] | None = None
+                error: str | None = None
+                if session.enable_stimulator and self._stimulator is not None:
+                    try:
+                        result = self._stimulator.trigger(shock.intensity_ma, shock.duration_sec, confirmed=True)
+                        status = "triggered"
+                    except Exception as exc:
+                        status = "failed"
+                        error = str(exc)
+                self._event_sink("shock_event", {"id": shock.id, "scheduledTimeSec": shock.time_sec, "actualTimeSec": elapsed, "status": status, "result": result, "error": error})
             if session.total_duration_sec > 0 and elapsed >= session.total_duration_sec:
                 self._event_sink("experiment_duration_reached", {"elapsedSec": elapsed})
                 threading.Thread(target=self.stop, name="experiment-auto-stop", daemon=True).start()

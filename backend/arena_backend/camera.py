@@ -25,10 +25,16 @@ def discover_cameras(max_index: int = 10) -> list[dict[str, Any]]:
         capture = cv2.VideoCapture(index, backend)
         try:
             if capture.isOpened():
+                width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH)) or 640
+                height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 480
+                fps = float(capture.get(cv2.CAP_PROP_FPS)) or 30.0
                 cameras.append({
                     "deviceId": f"camera-{index}",
                     "deviceIndex": index,
                     "deviceName": f"USB Camera {index + 1:02d}",
+                    "displayName": f"Camera {index + 1} (USB)",
+                    "status": "available",
+                    "resolutionOptions": [{"width": width, "height": height, "fps": fps}],
                 })
         finally:
             capture.release()
