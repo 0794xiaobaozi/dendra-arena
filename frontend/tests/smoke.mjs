@@ -44,6 +44,13 @@ try {
   if (setupOverflow.x || setupOverflow.y) throw new Error("Session Setup shell must fit the 1440x1000 development viewport");
   const setupStatusText = await page.locator(".setup-system-card").textContent();
   if (!setupStatusText.includes(`${expectedDisk.toFixed(1)} GB`)) throw new Error("Setup disk space must use the real local drive value");
+  if (!(await setupStatusText.includes("4 Cameras Detected"))) throw new Error("Setup must enumerate available cameras");
+  await page.getByRole("button", { name: "Preflight Check" }).click();
+  await page.getByRole("button", { name: "Preflight Passed" }).waitFor();
+  await page.getByRole("button", { name: "Edit ROI" }).click();
+  if (!(await page.locator(".setup-camera-preview.roi-editing").isVisible())) throw new Error("ROI editor must enter interactive mode");
+  await page.keyboard.press("Enter");
+  if (!(await page.locator(".session-action-footer").textContent()).includes("ROI saved")) throw new Error("ROI editor must validate and commit with Enter");
   await page.locator(".setup-box-item").nth(1).click();
   if (await page.locator(".target-box-card select").inputValue() !== "box-2" || !(await page.locator(".box-config-header").textContent()).includes("Box B")) throw new Error("Session Setup box selection must synchronize all three columns");
   await page.locator(".experiment-card input").first().fill("Persistent Session Draft");
@@ -54,6 +61,13 @@ try {
   if (rightPanelMetrics.scrollHeight > rightPanelMetrics.clientHeight + 1) throw new Error(`Session Setup right panel must fit all cards at 1440x1000: ${JSON.stringify(rightPanelMetrics)}`);
   await page.getByRole("button", { name: "Protocol Lab", exact: true }).click();
   if (await page.locator(".protocol-registry").count() !== 1 || await page.locator(".protocol-editor").count() !== 1 || await page.locator(".protocol-inspector").count() !== 1) throw new Error("Protocol Lab must expose registry, editor, and inspector columns");
+  await page.getByRole("button", { name: "Generate Events" }).click();
+  if (!(await page.locator(".protocol-feedback").textContent()).includes("Generated")) throw new Error("Protocol schedule generator must update through the backend command boundary");
+  await page.getByRole("button", { name: "Dry Run Protocol" }).click();
+  if (!(await page.locator(".protocol-feedback").textContent()).includes("Dry run passed")) throw new Error("Protocol dry run must return a result");
+  await page.getByRole("button", { name: "Stimulator Test" }).click();
+  if (await page.getByRole("button", { name: "Send Test Pulse" }).isEnabled()) throw new Error("Real stimulator test must require explicit confirmation");
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await page.getByRole("button", { name: "Session Setup", exact: true }).click();
   if (await page.locator(".experiment-card input").first().inputValue() !== "Persistent Session Draft") throw new Error("Session draft must survive Protocol Lab navigation");
   await page.getByRole("button", { name: "Run", exact: true }).click();
