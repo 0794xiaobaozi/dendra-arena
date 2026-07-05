@@ -32,9 +32,13 @@ fn spawn_backend(app: AppHandle) -> Result<BackendProcess, String> {
         command.current_dir(&project_root);
         command
     };
-    command.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    command.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
     #[cfg(windows)]
-    { let _ = command.creation_flags(0x08000000); } // CREATE_NO_WINDOW
+    {
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        const DETACHED_PROCESS: u32 = 0x00000008;
+        command.creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS);
+    }
     let mut child = command.spawn().map_err(|error| format!("failed to start backend: {error}"))?;
     let stdin = child.stdin.take().ok_or("backend stdin unavailable")?;
     let stdout = child.stdout.take().ok_or("backend stdout unavailable")?;
