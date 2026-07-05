@@ -112,3 +112,14 @@
   .setup-box-item { min-height: 58px; }.setup-box-list { gap: 5px; }.setup-check-list { gap: 6px; }
   .box-config-section { padding-top: 7px; padding-bottom: 7px; }.setup-table-scroll { max-height: 105px; }
 }
+
+@media (max-width: 1350px) {
+  .session-setup-layout { min-width: 0; grid-template-columns: 280px minmax(0,1fr) 280px; }
+  .session-left,.session-right { overflow-y: auto; }
+  .protocol-lab-layout { min-width: 0; grid-template-columns: 240px minmax(0,1fr) 240px; }
+  .protocol-registry .registry-toolbar { grid-template-columns: 1fr; }
+  .protocol-form-grid { grid-template-columns: 1fr; }
+  .protocol-form-grid > div:first-child { padding-right: 0; border-right: 0; }
+  .camera-config-section,.roi-config-section { grid-template-columns: 1fr; }
+  .setup-camera-preview { max-height: 220px; }
+}
