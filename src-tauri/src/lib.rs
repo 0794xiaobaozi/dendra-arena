@@ -5,6 +5,9 @@ use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, LogicalSize, Manager, State};
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
 struct BackendProcess {
     child: Child,
     stdin: ChildStdin,
@@ -30,6 +33,8 @@ fn spawn_backend(app: AppHandle) -> Result<BackendProcess, String> {
         command
     };
     command.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    #[cfg(windows)]
+    { let _ = command.creation_flags(0x08000000); } // CREATE_NO_WINDOW
     let mut child = command.spawn().map_err(|error| format!("failed to start backend: {error}"))?;
     let stdin = child.stdin.take().ok_or("backend stdin unavailable")?;
     let stdout = child.stdout.take().ok_or("backend stdout unavailable")?;
