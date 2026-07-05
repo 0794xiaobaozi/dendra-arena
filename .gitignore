@@ -21,6 +21,21 @@ backend-dist/
 *.log
 livefreeze_crash.log
 
+# Legacy PySide6 entrypoints (deprecated, not part of 1.0 build)
+run.ps1
+run_click.bat
+run_venv.ps1
+run_venv_click.ps1
+setup.ps1
+shock.py
+build.ps1
+build_installer.ps1
+environment.yml
+livefreeze.spec
+livefreeze_debug.spec
+main.py
+requirements.txt
+
 # Experiment output (never commit subject/session data)
 data/
 sessions/
