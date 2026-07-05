@@ -3,7 +3,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, LogicalSize, Manager, State};
 
 struct BackendProcess {
     child: Child,
@@ -102,17 +102,24 @@ pub fn run() {
             let state = app.state::<BackendState>();
             let process = spawn_backend(app.handle().clone()).map_err(std::io::Error::other)?;
             *state.0.lock().map_err(|_| std::io::Error::other("backend lock poisoned"))? = Some(process);
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_max_size(Some(LogicalSize::new(1440.0, 1000.0)));
+            }
             Ok(())
         })
         .on_window_event(|window, event| {
-            if matches!(event, tauri::WindowEvent::Destroyed) {
-                let state = window.state::<BackendState>();
-                if let Ok(mut guard) = state.0.lock() {
-                    if let Some(mut backend) = guard.take() {
-                        let _ = backend.child.kill();
-                        let _ = backend.child.wait();
-                    }
-                };
+            use tauri::WindowEvent;
+            match event {
+                WindowEvent::Destroyed => {
+                    let state = window.state::<BackendState>();
+                    if let Ok(mut guard) = state.0.lock() {
+                        if let Some(mut backend) = guard.take() {
+                            let _ = backend.child.kill();
+                            let _ = backend.child.wait();
+                        }
+                    };
+                }
+                _ => {}
             }
         })
         .run(tauri::generate_context!())

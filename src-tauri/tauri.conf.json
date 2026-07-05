@@ -21,7 +21,7 @@
         "maxHeight": 1000,
         "decorations": false,
         "resizable": false,
-        "maximizable": false,
+        "maximizable": true,
         "center": true
       }
     ],
