@@ -13,12 +13,14 @@ struct BackendProcess {
 struct BackendState(Mutex<Option<BackendProcess>>);
 
 fn spawn_backend(app: AppHandle) -> Result<BackendProcess, String> {
-    // Development runs the Python module directly. Release packaging replaces
-    // ARENA_BACKEND with the bundled PyInstaller sidecar path.
     let project_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().ok_or("invalid project root")?.to_path_buf();
     let configured = std::env::var("ARENA_BACKEND").ok();
-    let mut command = if let Some(path) = configured {
-        Command::new(path)
+    let bundled = app.path().resource_dir().ok().map(|dir| dir.join("arena-backend.exe")).filter(|p| p.exists());
+    let mut command = if let Some(path) = configured.or_else(|| bundled.map(|b| b.to_string_lossy().into_owned())) {
+        let mut c = Command::new(path);
+        let resource_dir = app.path().resource_dir().unwrap_or(project_root.clone());
+        c.env("PYTHONPATH", resource_dir.join("backend")).current_dir(&resource_dir);
+        c
     } else {
         let pixi_python = project_root.join(".pixi").join("envs").join("default").join("python.exe");
         let mut command = Command::new(if pixi_python.exists() { pixi_python.into_os_string() } else { "python".into() });
