@@ -114,6 +114,13 @@ class UsbShockDevice:
         stimulus_ack = self._read_ack(300)
         return {"resetAck": reset_ack, "stimulusAck": stimulus_ack, "sentAt": time.time()}
 
+    def send_raw(self, packet_hex: str) -> dict[str, Any]:
+        self._initialize()
+        packet = bytes.fromhex(packet_hex)
+        self._device.write(EP_OUT, packet, timeout=2000)
+        ack = self._read_ack(300)
+        return {"packet": packet_hex, "ack": ack, "sentAt": time.time()}
+
 
 @dataclass(frozen=True)
 class StimulatorStatus:
@@ -214,6 +221,26 @@ class StimulatorController:
             self.connect()
             result = self._device.send(current_ma, duration_units)
             return {**result, "currentMA": current_ma, "durationSeconds": duration_seconds, "durationUnits": duration_units}
+
+    def send_raw_packet(self, packet_hex: str) -> dict[str, Any]:
+        with self._lock:
+            self.connect()
+            return self._device.send_raw(packet_hex)
+
+    def send_raw_ctrl(self, request_type_hex: str, request_hex: str, value_hex: str, index_hex: str) -> dict[str, Any]:
+        with self._lock:
+            self.connect()
+            self._device._initialize()
+            import usb.core
+            bm = int(request_type_hex, 16)
+            b_req = int(request_hex, 16)
+            w_val = int(value_hex, 16)
+            w_idx = int(index_hex, 16)
+            try:
+                self._device._device.ctrl_transfer(bm, b_req, w_val, w_idx, None, timeout=1000)
+                return {"ok": True, "bmRequestType": hex(bm), "bRequest": hex(b_req), "wValue": hex(w_val), "wIndex": hex(w_idx)}
+            except usb.core.USBError as e:
+                return {"ok": False, "error": str(e)}
 
     def close(self) -> None:
         self.disconnect()

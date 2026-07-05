@@ -198,3 +198,11 @@ export async function disarmStimulator() {
 export async function runStimulatorTest(currentMA: number, durationSeconds: number) {
   return sendBackendCommand("stimulator_test", { currentMA, durationSeconds, confirmed: true });
 }
+
+export async function sendRawStimPacket(packetHex: string) {
+  return sendBackendCommand("send_raw_packet", { packetHex });
+}
+
+export async function sendRawCtrl(requestType: string, request: string, value: string, index: string) {
+  return sendBackendCommand("send_raw_ctrl", { requestType, request, value, index });
+}

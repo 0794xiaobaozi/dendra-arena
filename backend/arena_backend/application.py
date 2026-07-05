@@ -46,6 +46,8 @@ class BackendApplication:
             "arm_stimulator": self._arm_stimulator,
             "disarm_stimulator": self._disarm_stimulator,
             "stimulator_test": self._stimulator_test,
+            "send_raw_packet": self._send_raw_packet,
+            "send_raw_ctrl": self._send_raw_ctrl,
             "get_state": self._get_state,
             "start_preview": self._start_preview,
             "stop_preview": self._stop,
@@ -168,6 +170,17 @@ class BackendApplication:
         output_dir = Path(str(payload.get("outputDir", Path.home() / "Pictures" / "arena")))
         path = self._runner.snapshot(str(payload["boxId"]), output_dir)
         return {"path": str(path)}
+
+    def _send_raw_packet(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return self._stimulator.send_raw_packet(str(payload["packetHex"]))
+
+    def _send_raw_ctrl(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return self._stimulator.send_raw_ctrl(
+            str(payload.get("requestType", "40")),
+            str(payload.get("request", "00")),
+            str(payload.get("value", "0000")),
+            str(payload.get("index", "0000")),
+        )
 
     def shutdown(self) -> None:
         self._runner.stop()
