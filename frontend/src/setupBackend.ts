@@ -173,6 +173,10 @@ export async function getStimulatorStatus() {
   return sendBackendCommand("get_stimulator_status");
 }
 
+export async function connectStimulator() {
+  return sendBackendCommand("connect_stimulator");
+}
+
 export async function armStimulator(confirmed: boolean) {
   return sendBackendCommand("arm_stimulator", { confirmed });
 }

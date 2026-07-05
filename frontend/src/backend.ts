@@ -1,6 +1,7 @@
 import { useArenaStore } from "./store";
 import { publishFrame } from "./frameBus";
 import type { RuntimeEvent, ShockEvent } from "./types";
+import { getStimulatorStatus } from "./setupBackend";
 
 declare const __ARENA_PREVIEW_DISK_FREE_GB__: number;
 
@@ -110,7 +111,7 @@ export async function startExperimentCommand() {
       cameras: cameraCommandModels(),
       shocks: state.shocks,
       totalDurationSec: state.totalDurationSec,
-      globalOptions: { saveVideo: true, enableStimulator: false },
+      globalOptions: { saveVideo: true, enableStimulator: state.shocks.length > 0 },
     },
   });
 }
@@ -161,7 +162,7 @@ export async function initializeBackend() {
     });
     await invoke("start_backend");
     const state = await sendBackendCommand("get_state", { saveDir: useArenaStore.getState().saveDir });
-    useArenaStore.setState((current) => ({
+useArenaStore.setState((current) => ({
       appState: (state.state as typeof current.appState) ?? "idle",
       elapsedSec: Number(state.elapsedSec ?? 0),
       system: {
@@ -171,6 +172,16 @@ export async function initializeBackend() {
         pythonVersion: String(state.pythonVersion ?? current.system.pythonVersion),
       },
     }));
+    void getStimulatorStatus().then((stimulator) => {
+        const s = stimulator as { connected?: boolean; armed?: boolean; calibrated?: boolean; device_id?: string; error?: string };
+        useArenaStore.getState().updateStimulator({
+          connected: s.connected ?? false,
+          armed: s.armed ?? false,
+          calibrated: s.calibrated ?? false,
+          deviceId: s.device_id,
+          error: s.error,
+        });
+      });
   } catch (error) {
     console.error("arena backend initialization failed", error);
     useArenaStore.setState((state) => ({ appState: "idle", system: { ...state.system, backendState: "error" } }));

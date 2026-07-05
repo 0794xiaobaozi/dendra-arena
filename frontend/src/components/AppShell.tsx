@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Activity, Check, ChevronDown, CircleStop, Database, HardDrive, Minus, MonitorUp, PanelLeftClose, PanelLeftOpen, PanelRightOpen, Play, Plus, Radio, Settings2, Square, Thermometer, X } from "lucide-react";
+import { Activity, Check, ChevronDown, CircleStop, Database, HardDrive, Minus, MonitorUp, PanelLeftClose, PanelLeftOpen, PanelRightOpen, Play, Plus, Radio, Settings2, Square, Thermometer, X, Zap } from "lucide-react";
 import { CameraWall } from "./CameraWall";
 import { BottomMonitorStrip } from "./MonitorStrip";
 import { RightProtocolPanel } from "./ProtocolPanel";
@@ -65,14 +65,20 @@ function CameraList({ onCollapse }: { onCollapse: () => void }) {
 }
 
 function PreflightChecklist() {
-  const { cameras, saveDir } = useArenaStore();
+  const { cameras, saveDir, system } = useArenaStore();
+  const stimulator = system.stimulator;
+  const stimLabel = stimulator.connected
+    ? `Armed · ${stimulator.deviceId ?? "USB"}`
+    : stimulator.error
+      ? `Error: ${stimulator.error}`
+      : "Not detected";
   const enabled = cameras.filter((camera) => camera.enabled);
   const rows = [
     ["Cameras selected", `${enabled.length} / ${cameras.length}`],
     ["ROI ready", `${enabled.filter((camera) => camera.roi.active).length} / ${enabled.length}`],
     ["Save folder", saveDir],
     ["Protocol valid", "Fear Conditioning v2"],
-    ["Stimulator connected", "Shock Controller (COM3)"],
+    ["Stimulator connected", stimLabel],
   ];
   return (
     <section className="preflight card">
@@ -135,9 +141,13 @@ function RunActions() {
 
 function SystemStatusBar() {
   const system = useArenaStore((state) => state.system);
+  const stimulator = system.stimulator;
+  const stimText = stimulator.connected
+    ? stimulator.armed ? "Armed" : stimulator.calibrated ? "Ready" : "Connected"
+    : "—";
   return (
     <footer className="system-statusbar">
-      <div><span><Thermometer size={15} />System Temperature <b className={system.temperatureC == null ? "" : "healthy"}>{system.temperatureC == null ? "Unavailable" : <><i className="status-dot ok" />{system.temperatureC.toFixed(1)} °C</>}</b></span><span><HardDrive size={15} />Disk Space <b>{system.diskFreeGB == null ? "Checking…" : <><i className="status-dot blue" />{system.diskFreeGB.toFixed(1)} GB free</>}</b></span></div>
+      <div><span><Thermometer size={15} />System Temperature <b className={system.temperatureC == null ? "" : "healthy"}>{system.temperatureC == null ? "Unavailable" : <><i className="status-dot ok" />{system.temperatureC.toFixed(1)} °C</>}</b></span><span><HardDrive size={15} />Disk Space <b>{system.diskFreeGB == null ? "Checking…" : <><i className="status-dot blue" />{system.diskFreeGB.toFixed(1)} GB free</>}</b></span><span><Zap size={15} />Stimulator <b>{stimText}</b></span></div>
       <div><span><Activity size={14} />Backend <b className={system.backendState === "connected" ? "healthy" : ""}>{system.backendState}</b></span><span>Python {system.pythonVersion}</span><span>•</span><span>arena {system.appVersion}</span></div>
     </footer>
   );

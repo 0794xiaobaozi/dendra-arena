@@ -66,4 +66,13 @@ export interface SystemStatus {
   pythonVersion: string;
   appVersion: string;
   backendState: "connected" | "disconnected" | "error" | "preview";
+  stimulator: StimulatorStatus;
+}
+
+export interface StimulatorStatus {
+  connected: boolean;
+  armed: boolean;
+  calibrated: boolean;
+  deviceId?: string;
+  error?: string;
 }

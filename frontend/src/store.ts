@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { demoCameras, demoEvents, demoMotion, demoShocks } from "./mockData";
-import type { AppPage, AppState, CameraSession, MotionSample, RuntimeEvent, ShockEvent, SystemStatus } from "./types";
+import type { AppPage, AppState, CameraSession, MotionSample, RuntimeEvent, ShockEvent, StimulatorStatus, SystemStatus } from "./types";
 
 interface ArenaStore {
   page: AppPage;
@@ -22,7 +22,11 @@ interface ArenaStore {
   connectPreview: () => void;
   startExperiment: () => void;
   stop: () => void;
+  setShocks: (shocks: ShockEvent[]) => void;
+  updateStimulator: (patch: Partial<StimulatorStatus>) => void;
 }
+
+const defaultStimulator: StimulatorStatus = { connected: false, armed: false, calibrated: false };
 
 export const useArenaStore = create<ArenaStore>((set) => ({
   page: "setup",
@@ -36,7 +40,7 @@ export const useArenaStore = create<ArenaStore>((set) => ({
   elapsedSec: 192,
   totalDurationSec: 480,
   saveDir: "C:\\Shared\\arena\\2026-07-03",
-  system: { diskFreeGB: null, pythonVersion: "Browser preview", appVersion: "1.0.0-dev", backendState: "preview" },
+  system: { diskFreeGB: null, pythonVersion: "Browser preview", appVersion: "1.0.0-dev", backendState: "preview", stimulator: defaultStimulator },
   setPage: (page) => set({ page }),
   selectBox: (boxId) => set({ selectedBoxId: boxId }),
   selectMotionBox: (boxId) => set({ motionBoxId: boxId }),
@@ -44,4 +48,6 @@ export const useArenaStore = create<ArenaStore>((set) => ({
   connectPreview: () => set((state) => ({ appState: state.appState === "idle" ? "previewing" : "idle", cameras: state.cameras.map((camera) => ({ ...camera, recordingState: state.appState === "idle" ? "preview" : "idle" })) })),
   startExperiment: () => set((state) => ({ appState: "running", cameras: state.cameras.map((camera) => camera.enabled ? { ...camera, recordingState: "recording" } : camera) })),
   stop: () => set((state) => ({ appState: "idle", cameras: state.cameras.map((camera) => ({ ...camera, recordingState: "idle", behaviorState: "unknown" })) })),
+  setShocks: (shocks) => set({ shocks }),
+  updateStimulator: (patch) => set((state) => ({ system: { ...state.system, stimulator: { ...state.system.stimulator, ...patch } } })),
 }));

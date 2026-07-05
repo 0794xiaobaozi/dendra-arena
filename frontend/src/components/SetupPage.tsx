@@ -120,10 +120,13 @@ function SessionSetup({ onOpenProtocolLab, onReady }: { onOpenProtocolLab: () =>
   const [previewingBoxId, setPreviewingBoxId] = useState<string | null>(null);
   const [roiEditing, setRoiEditing] = useState(false);
   const [roiSnapshot, setRoiSnapshot] = useState<SessionBoxDraft["roi"]>(null);
+  const editingRoiRef = useRef<SessionBoxDraft["roi"]>(null);
+  const [loadedShocks, setLoadedShocks] = useState(demoShocks);
   const selected = boxes.find((box) => box.id === selectedBoxId) ?? boxes[0];
+  editingRoiRef.current = selected.roi;
   const updateSelected = (patch: Partial<SessionBoxDraft>) => setBoxes((items) => items.map((box) => box.id === selected.id ? { ...box, ...patch } : box));
   const updateFreeze = (key: keyof SessionBoxDraft["freeze"], value: number) => updateSelected({ freeze: { ...selected.freeze, [key]: value } });
-  const totalShockTime = demoShocks.reduce((sum, shock) => sum + shock.durationSec, 0);
+  const totalShockTime = loadedShocks.reduce((sum, shock) => sum + shock.durationSec, 0);
   const locallyComplete = Boolean(name.trim() && saveDir.trim() && boxes.every((box) => box.camera !== "Unassigned" && box.protocol !== "Unassigned" && box.roi));
   const availableCameraOptions = devices.length ? devices.map((device) => device.displayName) : cameraOptions;
   const sessionDraft = useMemo(() => ({
@@ -140,6 +143,24 @@ function SessionSetup({ onOpenProtocolLab, onReady }: { onOpenProtocolLab: () =>
     }).catch((error) => setFeedback(`Camera enumeration failed: ${error instanceof Error ? error.message : String(error)}`)).finally(() => active && setHardwareLoading(false));
     return () => { active = false; void stopSetupCameraPreview(); };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const summaries = await listProtocolTemplates();
+      if (!active) return;
+      const summary = summaries.find((s) => s.name === selected.protocol);
+      if (!summary) return;
+      try {
+        const protocol = await loadProtocolTemplate(summary.id);
+        if (!active) return;
+        const shocks = protocol.shocks.map((s) => ({ id: s.id, timeSec: s.timeSec, durationSec: s.durationSec, intensityMA: s.intensityMA, status: "pending" as const }));
+        setLoadedShocks(shocks);
+        useArenaStore.getState().setShocks(shocks);
+      } catch { /* keep current */ }
+    })();
+    return () => { active = false; };
+  }, [selected.protocol, selected.id]);
 
   const handleChooseDirectory = async () => {
     const selectedPath = await chooseSaveDirectory();
@@ -176,20 +197,26 @@ function SessionSetup({ onOpenProtocolLab, onReady }: { onOpenProtocolLab: () =>
       setPreviewingBoxId(selected.id);
     } catch (error) { setFeedback(`Camera test failed: ${error instanceof Error ? error.message : String(error)}`); }
   };
-  const beginRoiEdit = () => {
+const beginRoiEdit = () => {
     const roi = selected.roi ?? { mode: "Rectangle" as const, x: 120, y: 80, width: 1280, height: 720 };
     setRoiSnapshot(selected.roi ? { ...selected.roi } : null);
-    updateSelected({ roi });
+    updateSelected({ roi: { ...roi } });
     setRoiEditing(true);
   };
   const cancelRoiEdit = () => { updateSelected({ roi: roiSnapshot }); setRoiEditing(false); setFeedback("ROI edit cancelled"); };
   const commitRoiEdit = async () => {
-    if (!selected.roi) return;
-    const result = await validateRoi({ ...selected.roi, mode: selected.roi.mode === "Full Frame" ? "full_frame" : "rectangle", imageWidth: 1920, imageHeight: 1080 });
-    if (!result.valid) { setFeedback(`ROI invalid: ${(result.errors as string[]).join(" · ")}`); return; }
-    setRoiEditing(false); setPreflight(null); setFeedback(`ROI saved: ${selected.roi.width} × ${selected.roi.height}`);
+    const roi = editingRoiRef.current;
+    if (!roi) { setRoiEditing(false); setFeedback("ROI is missing — click Edit ROI first"); return; }
+    try {
+      const result = await validateRoi({ ...roi, mode: roi.mode === "Full Frame" ? "full_frame" : "rectangle", imageWidth: 1920, imageHeight: 1080 });
+      const errors = Array.isArray(result.errors) ? result.errors as string[] : [];
+      if (!result.valid) { setFeedback(`ROI invalid: ${errors.join(" · ")}`); return; }
+      setRoiEditing(false); setPreflight(null); setFeedback(`ROI saved: ${roi.width} × ${roi.height}`);
+    } catch (error) {
+      setRoiEditing(false);
+      setFeedback(`ROI validation failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
   };
-
   const addBox = () => {
     const index = boxes.length;
     const next: SessionBoxDraft = {
@@ -262,8 +289,8 @@ function SessionSetup({ onOpenProtocolLab, onReady }: { onOpenProtocolLab: () =>
 
       <section className="box-config-section schedule-config-section">
         <SectionTitle icon={<Zap size={15} />} title="Shock Schedule (Overrides)" action={<label className="setup-toggle-label">Use Template Schedule <Toggle checked={selected.useTemplateSchedule} onChange={(checked) => updateSelected({ useTemplateSchedule: checked })} label="Use template shock schedule" /></label>} />
-        <div className="schedule-summary"><span>Total Events: <b>{demoShocks.length}</b></span><span>First: <b>{demoShocks[0].timeSec} s</b></span><span>Last: <b>{demoShocks.at(-1)?.timeSec} s</b></span><span>Total Shock Time: <b>{totalShockTime.toFixed(1)} s</b></span></div>
-        <div className="setup-table-scroll"><table><thead><tr><th>#</th><th>Time (s)</th><th>Duration (s)</th><th>Intensity (mA)</th><th>Notes</th></tr></thead><tbody>{demoShocks.map((shock, index) => <tr key={shock.id}><td>{index + 1}</td><td>{shock.timeSec}</td><td>{shock.durationSec.toFixed(1)}</td><td>{shock.intensityMA.toFixed(2)}</td><td /></tr>)}</tbody></table></div>
+        <div className="schedule-summary"><span>Total Events: <b>{loadedShocks.length}</b></span><span>First: <b>{loadedShocks[0]?.timeSec ?? 0} s</b></span><span>Last: <b>{loadedShocks.at(-1)?.timeSec ?? 0} s</b></span><span>Total Shock Time: <b>{totalShockTime.toFixed(1)} s</b></span></div>
+        <div className="setup-table-scroll"><table><thead><tr><th>#</th><th>Time (s)</th><th>Duration (s)</th><th>Intensity (mA)</th><th>Notes</th></tr></thead><tbody>{loadedShocks.map((shock, index) => <tr key={shock.id}><td>{index + 1}</td><td>{shock.timeSec}</td><td>{shock.durationSec.toFixed(1)}</td><td>{shock.intensityMA.toFixed(2)}</td><td /></tr>)}</tbody></table></div>
         <button className="setup-outline-button" disabled={selected.useTemplateSchedule}><Settings2 size={14} />Edit Schedule…</button>
       </section>
     </main>
@@ -271,7 +298,7 @@ function SessionSetup({ onOpenProtocolLab, onReady }: { onOpenProtocolLab: () =>
     <aside className="session-right setup-scroll-column">
       <section className="setup-card target-box-card"><SectionTitle icon={<SlidersHorizontal size={15} />} title="Session Setup" /><Field label="Target Box"><select value={selected.id} onChange={(event) => setSelectedBoxId(event.target.value)}>{boxes.map((box) => <option value={box.id} key={box.id}>{box.label}</option>)}</select></Field></section>
       <section className="setup-card quick-settings-card"><SectionTitle icon={<Settings2 size={15} />} title="Quick Settings" /><Field label="Assigned Protocol"><select value={selected.protocol} onChange={(event) => updateSelected({ protocol: event.target.value })}><option>Unassigned</option>{protocolOptions.map((protocol) => <option key={protocol}>{protocol}</option>)}</select></Field><Field label="Camera Source"><select value={selected.camera} onChange={(event) => updateSelected({ camera: event.target.value })}><option>Unassigned</option>{availableCameraOptions.map((camera) => <option key={camera}>{camera}</option>)}</select></Field><div className="quick-status-row"><span>ROI Status</span><b className={selected.roi ? "ok" : "error"}><i />{selected.roi ? `Defined (${selected.roi.width} × ${selected.roi.height})` : "Missing"}</b><button onClick={() => document.getElementById("setup-roi-section")?.scrollIntoView({ behavior: "smooth" })}><Pencil size={13} /></button></div><Field label="Freeze Preset"><select value={selected.protocol} onChange={(event) => updateSelected({ protocol: event.target.value })}><option>Unassigned</option>{protocolOptions.map((protocol) => <option key={protocol}>{protocol}</option>)}</select></Field><div className="quick-toggle-row"><span>Shock Enabled</span><Toggle checked={selected.shockEnabled} onChange={(checked) => { updateSelected({ shockEnabled: checked }); setPreflight(null); }} label="Enable shock for selected box" /></div></section>
-      <section className="setup-card session-summary-card"><SectionTitle icon={<ClipboardCheck size={15} />} title="Session Summary" /><dl><div><dt>Total Boxes</dt><dd>{boxes.length}</dd></div><div><dt>Protocols</dt><dd>Mixed</dd></div><div><dt>Recording</dt><dd className="ok"><i />Enabled</dd></div><div><dt>Total Duration ({selected.label})</dt><dd>1800 s <small>(30:00)</small></dd></div><div><dt>Total Shock Events ({selected.label})</dt><dd>{selected.shockEnabled ? demoShocks.length : 0}</dd></div><div><dt>Total Shock Time ({selected.label})</dt><dd>{selected.shockEnabled ? `${totalShockTime.toFixed(1)} s` : "0.0 s"}</dd></div></dl></section>
+      <section className="setup-card session-summary-card"><SectionTitle icon={<ClipboardCheck size={15} />} title="Session Summary" /><dl><div><dt>Total Boxes</dt><dd>{boxes.length}</dd></div><div><dt>Protocols</dt><dd>Mixed</dd></div><div><dt>Recording</dt><dd className="ok"><i />Enabled</dd></div><div><dt>Total Duration ({selected.label})</dt><dd>1800 s <small>(30:00)</small></dd></div><div><dt>Total Shock Events ({selected.label})</dt><dd>{selected.shockEnabled ? loadedShocks.length : 0}</dd></div><div><dt>Total Shock Time ({selected.label})</dt><dd>{selected.shockEnabled ? `${totalShockTime.toFixed(1)} s` : "0.0 s"}</dd></div></dl></section>
       <section className="setup-card validation-card"><SectionTitle icon={<ShieldCheck size={15} />} title={`Validation (${selected.label})`} /><ul className="setup-check-list">{(preflight?.boxes[selected.id] ?? [{ id: "camera", level: "success", message: "Camera assigned", blocking: false }, { id: "roi", level: selected.roi ? "success" : "error", message: selected.roi ? "ROI defined" : "ROI missing", blocking: !selected.roi }, { id: "protocol", level: "success", message: "Protocol valid", blocking: false }, { id: "freeze", level: "success", message: "Freeze settings valid", blocking: false }]).map((item) => <li key={item.id} className={item.level === "error" ? "error" : item.level === "warning" ? "warning" : ""}>{item.level === "success" ? <Check /> : <CircleAlert />}{item.message}</li>)}</ul></section>
       <section className="setup-card setup-actions-card"><SectionTitle icon={<WandSparkles size={15} />} title="Actions" /><div><button className="setup-outline-button"><Copy size={14} />Copy Settings to Other Boxes</button><button className="setup-plain-button"><Upload size={14} />Apply to Selected Boxes…</button></div></section>
     </aside>
