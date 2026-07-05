@@ -123,3 +123,6 @@
   .camera-config-section,.roi-config-section { grid-template-columns: 1fr; }
   .setup-camera-preview { max-height: 220px; }
 }
+
+.window-size-toggle { margin-left: auto; height: 30px; width: 30px; display: grid; place-items: center; border: 1px solid #dce1e8; border-radius: 5px; background: #fff; color: #4e5664; }
+.window-size-toggle:hover { background: #f0f2f5; }

@@ -3,7 +3,7 @@ import {
   ArrowRight, Camera, Check, ChevronDown, CircleAlert, ClipboardCheck, Copy, Database,
   Eye, FileCode2, FileText, FolderOpen, Gauge, Import, ListChecks, Pencil, Play,
   Plus, RefreshCw, Save, Search, Settings2, ShieldCheck, SlidersHorizontal, Sparkles,
-  Trash2, Upload, WandSparkles, Zap,
+  Square, Trash2, Upload, WandSparkles, Zap,
 } from "lucide-react";
 import { demoShocks } from "../mockData";
 import { subscribeFrame } from "../frameBus";
@@ -408,5 +408,5 @@ function ProtocolLab() {
 
 export function SetupPage({ onReady }: { onReady: () => void }) {
   const [tab, setTab] = useState<SetupTab>("session");
-  return <section className="setup-shell"><nav className="setup-subnav"><button className={tab === "session" ? "active" : ""} onClick={() => setTab("session")}>Session Setup</button><button className={tab === "protocol" ? "active" : ""} onClick={() => setTab("protocol")}>Protocol Lab</button></nav><div className={`setup-view ${tab === "session" ? "active" : ""}`}><SessionSetup onOpenProtocolLab={() => setTab("protocol")} onReady={onReady} /></div><div className={`setup-view ${tab === "protocol" ? "active" : ""}`}><ProtocolLab /></div></section>;
+  return <section className="setup-shell"><nav className="setup-subnav"><button className={tab === "session" ? "active" : ""} onClick={() => setTab("session")}>Session Setup</button><button className={tab === "protocol" ? "active" : ""} onClick={() => setTab("protocol")}>Protocol Lab</button><button className="window-size-toggle" title="Toggle window size (1440 / 1152)" onClick={() => void import("../backend").then((m) => m.windowAction("toggle-size"))}><Square size={12} /></button></nav><div className={`setup-view ${tab === "session" ? "active" : ""}`}><SessionSetup onOpenProtocolLab={() => setTab("protocol")} onReady={onReady} /></div><div className={`setup-view ${tab === "protocol" ? "active" : ""}`}><ProtocolLab /></div></section>;
 }
