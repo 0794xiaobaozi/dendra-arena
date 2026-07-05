@@ -10,7 +10,7 @@ import { subscribeFrame } from "../frameBus";
 import { useArenaStore } from "../store";
 import {
   chooseSaveDirectory, listCameras, lockSessionForRun, runPreflight, saveSessionDraft,
-  startSetupCameraPreview, stopSetupCameraPreview, validateRoi,
+  chooseSessionFile, loadSessionDraft, startSetupCameraPreview, stopSetupCameraPreview, validateRoi,
   armStimulator, chooseProtocolYaml, disarmStimulator, dryRunProtocol, generateShockSchedule,
   importProtocolYaml, listProtocolTemplates, loadProtocolTemplate, runStimulatorTest,
   saveProtocolTemplate, validateProtocolTemplate,
@@ -182,6 +182,36 @@ function SessionSetup({ onOpenProtocolLab, onReady }: { onOpenProtocolLab: () =>
     try { const result = await saveSessionDraft(sessionDraft); setFeedback(result.path ? `Draft saved: ${String(result.path)}` : "Draft validated in browser preview"); }
     catch (error) { setFeedback(`Save failed: ${error instanceof Error ? error.message : String(error)}`); }
   };
+  const handleLoad = async () => {
+    const path = await chooseSessionFile();
+    if (!path) return;
+    try {
+      const result = await loadSessionDraft(path) as { session?: Record<string, unknown> };
+      const session = result?.session as Record<string, unknown> | undefined;
+      if (!session) { setFeedback("Invalid session file"); return; }
+      if (typeof session.name === "string") setName(session.name);
+      if (typeof session.saveDir === "string") setSaveDir(session.saveDir);
+      if (typeof session.notes === "string") setNotes(session.notes);
+      const loadedBoxes = session.boxes as Array<Record<string, unknown>> | undefined;
+      if (loadedBoxes?.length) {
+        setBoxes(loadedBoxes.map((box, index) => ({
+          id: `box-${index + 1}`,
+          label: typeof box.label === "string" ? box.label : `Box ${String.fromCharCode(65 + index)}`,
+          color: boxColors[index % boxColors.length],
+          camera: typeof box.camera === "string" ? box.camera : "Unassigned",
+          protocol: typeof box.protocol === "string" ? box.protocol : "Unassigned",
+          instanceName: typeof box.instanceName === "string" ? box.instanceName : `Box${String.fromCharCode(65 + index)}`,
+          roi: box.roi as SessionBoxDraft["roi"] ?? null,
+          useFreezeDefaults: Boolean(box.useFreezeDefaults),
+          freeze: typeof box.freeze === "object" && box.freeze ? { threshold: Number((box.freeze as Record<string, unknown>).threshold ?? 0.65), minDuration: Number((box.freeze as Record<string, unknown>).minDuration ?? 1), exitThreshold: Number((box.freeze as Record<string, unknown>).exitThreshold ?? 0.85), minMoveDuration: Number((box.freeze as Record<string, unknown>).minMoveDuration ?? 0.2) } : initialBoxes[0]?.freeze ?? { threshold: 0.65, minDuration: 1, exitThreshold: 0.85, minMoveDuration: 0.2 },
+          useTemplateSchedule: Boolean(box.useTemplateSchedule),
+          shockEnabled: Boolean(box.shockEnabled),
+        })));
+      }
+      setPreflight(null);
+      setFeedback(`Session loaded: ${String(session.name ?? path)}`);
+    } catch (error) { setFeedback(`Load failed: ${error instanceof Error ? error.message : String(error)}`); }
+  };
   const handleReady = async () => {
     const result = await handlePreflight();
     if (!result?.canRun) return;
@@ -235,6 +265,7 @@ const beginRoiEdit = () => {
         <SectionTitle icon={<FileText size={15} />} title="Experiment" />
         <Field label="Experiment Name"><input value={name} onChange={(event) => setName(event.target.value)} /></Field>
         <Field label="Save Directory"><div className="setup-input-action"><input value={saveDir} onChange={(event) => { setSaveDir(event.target.value); setPreflight(null); }} /><button aria-label="Choose save directory" onClick={() => void handleChooseDirectory()}><FolderOpen size={14} /></button></div></Field>
+        <div><button className="setup-plain-button" style={{width:"100%"}} onClick={() => void handleLoad()}><Upload size={13} />Load Session…</button></div>
         <Field label="Notes"><textarea value={notes} onChange={(event) => setNotes(event.target.value)} /></Field>
       </section>
 

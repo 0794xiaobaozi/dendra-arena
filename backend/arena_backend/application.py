@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import platform
 import shutil
 from datetime import datetime, timezone
@@ -31,6 +32,7 @@ class BackendApplication:
             "validate_roi": self._validate_roi,
             "run_preflight_check": self._preflight,
             "save_session_draft": self._save_session_draft,
+            "load_session_draft": self._load_session_draft,
             "lock_session_for_run": self._lock_session,
             "list_protocol_templates": self._list_protocols,
             "load_protocol_template": self._load_protocol,
@@ -77,6 +79,14 @@ class BackendApplication:
         path = directory / f"{draft.get('name', 'session')}.arena.json"
         save_json_atomic(path, {"schemaVersion": 1, "status": "draft", "session": draft})
         return {"path": str(path)}
+
+    def _load_session_draft(self, payload: dict[str, Any]) -> dict[str, Any]:
+        path = Path(str(payload["path"]))
+        if not path.is_file():
+            raise ValueError(f"Session file not found: {path}")
+        data = json.loads(path.read_text(encoding="utf-8"))
+        session = data.get("session", data)
+        return {"path": str(path), "session": session}
 
     def _lock_session(self, payload: dict[str, Any]) -> dict[str, Any]:
         draft = payload.get("sessionDraft", payload)

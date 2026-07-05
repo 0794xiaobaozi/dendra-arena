@@ -71,6 +71,12 @@ export async function chooseProtocolYaml(): Promise<string | null> {
   return invoke<string | null>("select_protocol_yaml");
 }
 
+export async function chooseSessionFile(): Promise<string | null> {
+  if (!isTauri()) return null;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<string | null>("select_session_file");
+}
+
 export async function listCameras(): Promise<CameraDeviceModel[]> {
   if (!isTauri()) return Array.from({ length: 4 }, (_, index) => ({ deviceId: `camera-${index}`, deviceIndex: index, deviceName: `USB Camera ${index + 1}`, displayName: `Camera ${index + 1} (USB3.0)`, status: "available" as const, resolutionOptions: [{ width: 1920, height: 1080, fps: 30 }] }));
   const result = await sendBackendCommand("list_cameras", { maxIndex: 10 });
@@ -113,6 +119,10 @@ export async function runPreflight(sessionDraft: Record<string, unknown>): Promi
 export async function saveSessionDraft(sessionDraft: Record<string, unknown>) {
   if (!isTauri()) return { path: null, sessionDraft };
   return sendBackendCommand("save_session_draft", { sessionDraft });
+}
+
+export async function loadSessionDraft(path: string) {
+  return sendBackendCommand("load_session_draft", { path });
 }
 
 export async function lockSessionForRun(sessionDraft: Record<string, unknown>) {

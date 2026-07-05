@@ -84,10 +84,20 @@ async fn select_protocol_yaml() -> Result<Option<String>, String> {
         .map(|handle| handle.path().to_string_lossy().into_owned()))
 }
 
+#[tauri::command]
+async fn select_session_file() -> Result<Option<String>, String> {
+    Ok(rfd::AsyncFileDialog::new()
+        .set_title("Load arena session")
+        .add_filter("Arena Session", &["arena.json"])
+        .pick_file()
+        .await
+        .map(|handle| handle.path().to_string_lossy().into_owned()))
+}
+
 pub fn run() {
     tauri::Builder::default()
         .manage(BackendState(Mutex::new(None)))
-        .invoke_handler(tauri::generate_handler![start_backend, backend_command, select_save_directory, select_protocol_yaml])
+        .invoke_handler(tauri::generate_handler![start_backend, backend_command, select_save_directory, select_protocol_yaml, select_session_file])
         .setup(|app| {
             let state = app.state::<BackendState>();
             let process = spawn_backend(app.handle().clone()).map_err(std::io::Error::other)?;
