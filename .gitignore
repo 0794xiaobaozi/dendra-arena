@@ -33,6 +33,7 @@ session_summary.csv
 .idea/
 .vscode/
 .edge-profile/
+AGENTS.md
 node_modules/
 frontend/dist/
 frontend/run-page.png
