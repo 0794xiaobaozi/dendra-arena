@@ -111,8 +111,15 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![start_backend, backend_command, select_save_directory, select_protocol_yaml, select_session_file])
         .setup(|app| {
             let state = app.state::<BackendState>();
-            let process = spawn_backend(app.handle().clone()).map_err(std::io::Error::other)?;
-            *state.0.lock().map_err(|_| std::io::Error::other("backend lock poisoned"))? = Some(process);
+            match spawn_backend(app.handle().clone()) {
+                Ok(process) => {
+                    *state.0.lock().map_err(|_| std::io::Error::other("backend lock poisoned"))? = Some(process);
+                }
+                Err(error) => {
+                    eprintln!("arena backend failed to start: {error}");
+                    let _ = app.emit("backend-message", serde_json::json!({"kind":"event","type":"backend_stopped","payload":{"error":error}}));
+                }
+            }
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_max_size(Some(LogicalSize::new(1440.0, 1000.0)));
             }

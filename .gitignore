@@ -14,7 +14,7 @@ build/
 dist/
 installer/Output/
 backend-dist/
-!backend-dist/arena-backend/arena-backend.exe
+!backend-dist/arena-backend.exe
 *.egg-info/
 
 # Runtime logs and crash reports

@@ -38,9 +38,10 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      - name: Build Python backend (PyInstaller)
+      - name: Build Python backend (PyInstaller, one-file)
         run: |
           pixi run --environment default pyinstaller --noconfirm --clean --distpath backend-dist backend/backend.spec
+          Copy-Item build/backend/arena-backend.exe backend-dist/arena-backend.exe -Force
 
       - name: Build Tauri app
         run: npm run tauri build
