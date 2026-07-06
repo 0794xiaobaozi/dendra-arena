@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 import platform
 import shutil
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -20,7 +22,8 @@ class BackendApplication:
         self._event_sink = event_sink
         self._stimulator = stimulator or StimulatorController()
         self._runner = ExperimentRunner(event_sink, self._stimulator)
-        self._project_root = (project_root or Path(__file__).resolve().parents[2]).resolve()
+        base = Path(os.getcwd()) if getattr(sys, "frozen", False) else Path(__file__).resolve().parents[2]
+        self._project_root = (project_root or base).resolve()
         self._protocols = ProtocolRegistry(self._project_root / "protocols")
         self._last_cameras: list[dict[str, Any]] = []
 
