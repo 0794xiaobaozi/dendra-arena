@@ -16,13 +16,19 @@ class JsonLineTransport:
         line = json.dumps(message, ensure_ascii=False, separators=(",", ":"))
         with self._output_lock:
             sys.stdout.write(line + "\n")
-            sys.stdout.flush()
+            try:
+                sys.stdout.flush()
+            except OSError:
+                sys.stderr.write(f"[transport] flush failed for: {line[:200]}\n")
+                sys.stderr.flush()
 
     def event(self, event_type: str, payload: dict[str, Any]) -> None:
         self.send({"kind": "event", "type": event_type, "payload": payload})
 
 
 def main() -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     transport = JsonLineTransport()
     application = BackendApplication(transport.event)
     transport.event("backend_ready", {"protocolVersion": 1})

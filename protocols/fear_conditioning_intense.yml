@@ -1,0 +1,76 @@
+schema_version: 1
+protocol:
+  id: fear_conditioning_intense
+  name: Fear Conditioning (intense)
+  version: '1.0'
+  description: High-intensity fear conditioning.
+  author: Lab Default
+  total_duration_sec: 600.0
+  freeze_defaults:
+    exitThreshold: 0.85
+    minDurationSec: 1
+    minMoveDurationSec: 0.2
+    smoothingWindowFrames: 5
+    threshold: 0.001
+  phases: []
+  shocks:
+  - time_sec: 0.0
+    duration_sec: 1.0
+    current_mA: 1.5
+    notes: ''
+  - time_sec: 40.0
+    duration_sec: 1.0
+    current_mA: 1.5
+    notes: ''
+  - time_sec: 80.0
+    duration_sec: 1.0
+    current_mA: 1.5
+    notes: ''
+  - time_sec: 120.0
+    duration_sec: 1.0
+    current_mA: 1.5
+    notes: ''
+  - time_sec: 160.0
+    duration_sec: 1.0
+    current_mA: 1.5
+    notes: ''
+  - time_sec: 200.0
+    duration_sec: 1.0
+    current_mA: 1.5
+    notes: ''
+  - time_sec: 240.0
+    duration_sec: 1.0
+    current_mA: 1.5
+    notes: ''
+  - time_sec: 280.0
+    duration_sec: 1.0
+    current_mA: 1.5
+    notes: ''
+  - time_sec: 320.0
+    duration_sec: 1.0
+    current_mA: 1.5
+    notes: ''
+  - time_sec: 360.0
+    duration_sec: 1.0
+    current_mA: 1.5
+    notes: ''
+  - time_sec: 400.0
+    duration_sec: 1.0
+    current_mA: 1.5
+    notes: ''
+  - time_sec: 440.0
+    duration_sec: 1.0
+    current_mA: 1.5
+    notes: ''
+  - time_sec: 480.0
+    duration_sec: 1.0
+    current_mA: 1.5
+    notes: ''
+  - time_sec: 520.0
+    duration_sec: 1.0
+    current_mA: 1.5
+    notes: ''
+  - time_sec: 560.0
+    duration_sec: 1.0
+    current_mA: 1.5
+    notes: ''

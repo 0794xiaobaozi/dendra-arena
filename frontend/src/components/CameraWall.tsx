@@ -20,9 +20,6 @@ function ArenaPlaceholder({ camera }: { camera: CameraSession }) {
       <div className="arena-floor" />
       <div className="water-spout" />
       <div className="mouse-shape"><i className="mouse-ear" /><i className="mouse-tail" /></div>
-      <div className="roi-box" style={{ left: `${camera.roi.normalized.x * 100}%`, top: `${camera.roi.normalized.y * 100}%`, width: `${camera.roi.normalized.width * 100}%`, height: `${camera.roi.normalized.height * 100}%` }}>
-        <i /><i /><i /><i />
-      </div>
     </div>
   );
 }
@@ -70,5 +67,6 @@ function CameraCard({ camera }: { camera: CameraSession }) {
 export function CameraWall() {
   const allCameras = useArenaStore((state) => state.cameras);
   const cameras = allCameras.filter((camera) => camera.enabled);
+  if (!cameras.length) return <div className="camera-wall" data-count="0"><div className="camera-wall-empty">No cameras configured — go to Setup to configure a session</div></div>;
   return <div className="camera-wall" data-count={cameras.length}>{cameras.map((camera) => <div className="camera-slot" key={camera.boxId}><CameraCard camera={camera} /></div>)}</div>;
 }

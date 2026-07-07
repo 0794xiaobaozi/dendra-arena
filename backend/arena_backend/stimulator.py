@@ -146,6 +146,7 @@ class StimulatorController:
         self._armed = False
         self._last_error: str | None = None
         self._lock = threading.RLock()
+        self._mock = False
 
     @property
     def armed(self) -> bool:
@@ -153,6 +154,8 @@ class StimulatorController:
             return self._armed
 
     def _probe(self) -> bool:
+        if self._mock:
+            return True
         if self._device is not None:
             return True
         probe = getattr(self._device_factory, "probe", None)
@@ -166,10 +169,29 @@ class StimulatorController:
             except Exception as exc:
                 connected = False
                 self._last_error = str(exc)
-            return StimulatorStatus(connected, self._armed, self._duration_units_per_second is not None, self._duration_units_per_second, error=self._last_error)
+            calibrated = self._mock or self._duration_units_per_second is not None
+            device_id = "mock" if self._mock else f"{VID:04X}:{PID:04X}"
+            return StimulatorStatus(connected, self._armed, calibrated, self._duration_units_per_second if not self._mock else 100.0, device_id=device_id, error=self._last_error)
+
+    def mock_connect(self) -> StimulatorStatus:
+        with self._lock:
+            self._mock = True
+            self._armed = True
+            self._duration_units_per_second = 100.0
+            self._last_error = None
+            return self.status()
+
+    def disconnect_mock(self) -> StimulatorStatus:
+        with self._lock:
+            self._mock = False
+            self._armed = False
+            self._last_error = None
+            return self.status()
 
     def connect(self) -> StimulatorStatus:
         with self._lock:
+            if self._mock:
+                return self.status()
             if self._device is None:
                 self._device = self._device_factory()
                 try:
@@ -185,7 +207,8 @@ class StimulatorController:
         if not confirmed:
             raise PermissionError("arming requires explicit confirmation")
         with self._lock:
-            self.connect()
+            if not self._mock:
+                self.connect()
             self._armed = True
             return self.status()
 
@@ -197,6 +220,9 @@ class StimulatorController:
     def disconnect(self) -> StimulatorStatus:
         with self._lock:
             self._armed = False
+            if self._mock:
+                self._mock = False
+                return self.status()
             if self._device is not None:
                 self._device.close()
                 self._device = None
@@ -218,6 +244,8 @@ class StimulatorController:
             if not confirmed:
                 raise PermissionError("real stimulation requires explicit confirmation")
             duration_units = self.duration_seconds_to_units(duration_seconds)
+            if self._mock:
+                return {"mock": True, "currentMA": current_ma, "durationSeconds": duration_seconds, "durationUnits": duration_units}
             self.connect()
             result = self._device.send(current_ma, duration_units)
             return {**result, "currentMA": current_ma, "durationSeconds": duration_seconds, "durationUnits": duration_units}

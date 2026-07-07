@@ -2,6 +2,7 @@ import { useArenaStore } from "./store";
 import { publishFrame } from "./frameBus";
 import type { RuntimeEvent, ShockEvent } from "./types";
 import { getStimulatorStatus } from "./setupBackend";
+import { demoCameras, demoEvents, demoMotion, demoShocks } from "./mockData";
 
 declare const __ARENA_PREVIEW_DISK_FREE_GB__: number;
 
@@ -90,10 +91,12 @@ export function cameraCommandModels() {
     boxId: camera.boxId,
     label: camera.label,
     deviceId: camera.deviceId,
-    deviceIndex: Number(camera.deviceId.match(/\d+$/)?.[0] ?? 1) - 1,
+    deviceIndex: camera.deviceIndex,
     enabled: camera.enabled,
-    roi: { shape: camera.roi.shape, points: [] },
+    roi: { shape: camera.roi.shape, points: [[camera.roi.normalized.x, camera.roi.normalized.y], [camera.roi.normalized.width, camera.roi.normalized.height]] },
     freezeStrategy: { threshold: camera.freezeStrategy.threshold, minDurationSec: camera.freezeStrategy.minDurationSec },
+    frameWidth: camera.resolution.width,
+    frameHeight: camera.resolution.height,
   }));
 }
 
@@ -108,6 +111,7 @@ export async function startExperimentCommand() {
     sessionConfig: {
       sessionId: `arena_${stamp}`,
       saveDir: state.saveDir,
+      batchNumber: state.batchNumber,
       cameras: cameraCommandModels(),
       shocks: state.shocks,
       totalDurationSec: state.totalDurationSec,
@@ -146,7 +150,18 @@ export async function initializeBackend() {
   if (initialized) return;
   initialized = true;
   if (!isTauri()) {
-    useArenaStore.setState((state) => ({ system: { ...state.system, diskFreeGB: __ARENA_PREVIEW_DISK_FREE_GB__ } }));
+    useArenaStore.setState((state) => ({
+      system: { ...state.system, diskFreeGB: __ARENA_PREVIEW_DISK_FREE_GB__ },
+      cameras: demoCameras,
+      shocks: demoShocks,
+      events: demoEvents,
+      motion: demoMotion,
+      elapsedSec: 192,
+      totalDurationSec: 1800,
+      saveDir: "C:\\Shared\\arena\\2026-07-03",
+      selectedBoxId: "box-1",
+      motionBoxId: "box-1",
+    }));
     return;
   }
   try {

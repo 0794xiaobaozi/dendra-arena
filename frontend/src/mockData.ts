@@ -6,6 +6,7 @@ export const demoCameras: CameraSession[] = Array.from({ length: 4 }, (_, index)
   boxId: `box-${index + 1}`,
   label: `Box ${String.fromCharCode(65 + index)}`,
   deviceId: `uvc-demo-${index + 1}`,
+  deviceIndex: index,
   deviceName: `USB Camera ${String(index + 1).padStart(2, "0")}`,
   enabled: true,
   resolution: { width: 1920, height: 1080 },
@@ -32,9 +33,9 @@ export const demoCameras: CameraSession[] = Array.from({ length: 4 }, (_, index)
   motionValue: [0.08, 0.42, 0.31, 0.05][index],
 }));
 
-export const demoShocks: ShockEvent[] = Array.from({ length: 13 }, (_, index) => ({
+export const demoShocks: ShockEvent[] = Array.from({ length: 8 }, (_, index) => ({
   id: `shock-${index + 1}`,
-  timeSec: (index + 1) * 120,
+  timeSec: 120 + index * 180,
   durationSec: 2,
   intensityMA: 0.8,
   status: index === 0 ? "triggered" : "pending",

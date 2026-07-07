@@ -28,6 +28,7 @@ export interface CameraSession {
   boxId: string;
   label: string;
   deviceId: string;
+  deviceIndex: number;
   deviceName: string;
   enabled: boolean;
   resolution: { width: number; height: number };

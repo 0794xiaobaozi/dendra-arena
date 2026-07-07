@@ -1,0 +1,48 @@
+schema_version: 1
+protocol:
+  id: fear_conditioning
+  name: Fear Conditioning
+  version: '1.0'
+  description: Contextual fear conditioning with foot shocks.
+  author: Lab Default
+  total_duration_sec: 1800.0
+  freeze_defaults:
+    exitThreshold: 0.85
+    minDurationSec: 1
+    minMoveDurationSec: 0.2
+    smoothingWindowFrames: 5
+    threshold: 0.004
+  phases: []
+  shocks:
+  - time_sec: 120.0
+    duration_sec: 2.0
+    current_mA: 0.8
+    notes: ''
+  - time_sec: 300.0
+    duration_sec: 2.0
+    current_mA: 0.8
+    notes: ''
+  - time_sec: 480.0
+    duration_sec: 2.0
+    current_mA: 0.8
+    notes: ''
+  - time_sec: 660.0
+    duration_sec: 2.0
+    current_mA: 0.8
+    notes: ''
+  - time_sec: 840.0
+    duration_sec: 2.0
+    current_mA: 0.8
+    notes: ''
+  - time_sec: 1020.0
+    duration_sec: 2.0
+    current_mA: 0.8
+    notes: ''
+  - time_sec: 1200.0
+    duration_sec: 2.0
+    current_mA: 0.8
+    notes: ''
+  - time_sec: 1380.0
+    duration_sec: 2.0
+    current_mA: 0.8
+    notes: ''

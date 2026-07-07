@@ -1,4 +1,5 @@
 from pathlib import Path
+import threading
 import time
 from unittest.mock import patch
 
@@ -30,11 +31,11 @@ def test_unknown_command_is_rejected():
 
 
 def test_behavior_latch_emits_balanced_transition_events():
-    latch = _BehaviorLatch(threshold=0.65, min_duration_sec=1.0)
+    latch = _BehaviorLatch(threshold=0.003, min_duration_sec=1.0)
     assert latch.update(0.0, 0.0) == ("candidate_freeze", [])
     assert latch.update(0.0, 1.1) == ("freeze", ["freeze_start"])
-    assert latch.update(0.2, 2.0) == ("moving", [])
-    assert latch.update(0.2, 3.1) == ("moving", ["freeze_end", "moving_start"])
+    assert latch.update(0.05, 2.0) == ("moving", [])
+    assert latch.update(0.05, 3.1) == ("moving", ["freeze_end", "moving_start"])
 
 
 @pytest.mark.parametrize(("source", "expected"), [
@@ -53,6 +54,14 @@ def test_completed_session_writes_atomic_manifest(tmp_path: Path):
             pass
 
         def start(self, _path=None):
+            self._ready_event = threading.Event()
+            self._start_error = None
+            self._ready_event.set()
+
+        def start_async(self, _path=None):
+            self.start(_path)
+
+        def wait_ready(self, timeout=5.0):
             pass
 
         def stop(self):
@@ -69,9 +78,9 @@ def test_completed_session_writes_atomic_manifest(tmp_path: Path):
     with patch("arena_backend.experiment.CameraRuntime", FakeCamera):
         runner.start_experiment(session)
         runner.stop()
-    manifest = (tmp_path / "session-1" / "session.json").read_text(encoding="utf-8")
+    manifest = (tmp_path / "session.json").read_text(encoding="utf-8")
     assert '"status": "completed"' in manifest
-    assert not (tmp_path / "session-1" / "session.json.tmp").exists()
+    assert not (tmp_path / "session.json.tmp").exists()
 
 
 def test_camera_start_failure_marks_session_failed(tmp_path: Path):
@@ -80,6 +89,12 @@ def test_camera_start_failure_marks_session_failed(tmp_path: Path):
             pass
 
         def start(self, _path=None):
+            raise RuntimeError("camera unavailable")
+
+        def start_async(self, _path=None):
+            pass
+
+        def wait_ready(self, timeout=5.0):
             raise RuntimeError("camera unavailable")
 
         def stop(self):
@@ -93,9 +108,9 @@ def test_camera_start_failure_marks_session_failed(tmp_path: Path):
         "globalOptions": {"saveVideo": False},
     })
     with patch("arena_backend.experiment.CameraRuntime", FailingCamera):
-        with pytest.raises(RuntimeError, match="camera unavailable"):
+        with pytest.raises(RuntimeError, match="no cameras could be started"):
             runner.start_experiment(session)
-    manifest = (tmp_path / "failed-session" / "session.json").read_text(encoding="utf-8")
+    manifest = (tmp_path / "session.json").read_text(encoding="utf-8")
     assert '"status": "failed"' in manifest
     assert "camera unavailable" in manifest
 
@@ -145,5 +160,6 @@ def test_synthetic_experiment_ticks_shock_once_and_auto_stops(tmp_path: Path):
     assert len(shock_events) == 1
     assert shock_events[0]["status"] == "skipped_unarmed"
     assert any(kind == "experiment_tick" for kind, _ in events)
-    manifest = (tmp_path / "synthetic-experiment" / "session.json").read_text(encoding="utf-8")
+    manifest = (tmp_path / "session.json").read_text(encoding="utf-8")
     assert '"status": "completed"' in manifest
+    assert "synthetic" in manifest

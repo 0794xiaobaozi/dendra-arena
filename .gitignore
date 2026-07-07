@@ -63,3 +63,6 @@ src-tauri/gen/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Generated cache
+protocols/protocol_registry.json

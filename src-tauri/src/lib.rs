@@ -32,7 +32,7 @@ fn spawn_backend(app: AppHandle) -> Result<BackendProcess, String> {
         command.current_dir(&project_root);
         command
     };
-    command.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
+    command.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
     #[cfg(windows)]
     {
         const CREATE_NO_WINDOW: u32 = 0x08000000;
@@ -42,6 +42,12 @@ fn spawn_backend(app: AppHandle) -> Result<BackendProcess, String> {
     let mut child = command.spawn().map_err(|error| format!("failed to start backend: {error}"))?;
     let stdin = child.stdin.take().ok_or("backend stdin unavailable")?;
     let stdout = child.stdout.take().ok_or("backend stdout unavailable")?;
+    let stderr = child.stderr.take().ok_or("backend stderr unavailable")?;
+    std::thread::spawn(move || {
+        for line in BufReader::new(stderr).lines().map_while(Result::ok) {
+            eprintln!("[arena-backend] {line}");
+        }
+    });
     std::thread::spawn(move || {
         for line in BufReader::new(stdout).lines().map_while(Result::ok) {
             match serde_json::from_str::<Value>(&line) {
@@ -68,12 +74,20 @@ fn start_backend(app: AppHandle, state: State<'_, BackendState>) -> Result<(), S
 fn backend_command(app: AppHandle, state: State<'_, BackendState>, message: Value) -> Result<(), String> {
     let mut backend = state.0.lock().map_err(|_| "backend lock poisoned")?;
     if backend.is_none() {
-        *backend = Some(spawn_backend(app)?);
+        *backend = Some(spawn_backend(app.clone())?);
     }
+    let write = |process: &mut BackendProcess| -> Result<(), std::io::Error> {
+        serde_json::to_writer(&mut process.stdin, &message)?;
+        process.stdin.write_all(b"\n")?;
+        process.stdin.flush()
+    };
     let process = backend.as_mut().ok_or("backend unavailable")?;
-    serde_json::to_writer(&mut process.stdin, &message).map_err(|error| error.to_string())?;
-    process.stdin.write_all(b"\n").map_err(|error| error.to_string())?;
-    process.stdin.flush().map_err(|error| error.to_string())
+    if write(process).is_err() {
+        let _ = process.child.kill();
+        *backend = Some(spawn_backend(app.clone()).map_err(|e| format!("backend restart failed: {e}"))?);
+        write(backend.as_mut().unwrap()).map_err(|e| format!("backend write failed: {e}"))?;
+    }
+    Ok(())
 }
 
 #[tauri::command]

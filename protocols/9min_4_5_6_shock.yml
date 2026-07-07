@@ -1,8 +1,9 @@
 schema_version: 1
 
 protocol:
-  id: 9min_4_5_6_shock
-  name: 9分钟-4/5/6分电击(1.0mA)
+  id: shocks_3x_3s_1ma
+  name: 3 Shocks at 4/5/6 min
+  description: 9min protocol — 3s shocks at 4, 5, 6 min at 1.0mA
   total_duration_sec: 540
   shocks:
     - time_sec: 240

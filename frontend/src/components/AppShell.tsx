@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Activity, Check, ChevronDown, CircleStop, Database, HardDrive, Minus, MonitorUp, PanelLeftClose, PanelLeftOpen, PanelRightOpen, Play, Plus, Radio, Settings2, Square, Thermometer, X, Zap } from "lucide-react";
+import { useRef, useState } from "react";
+import { Activity, Check, ChevronDown, CircleStop, Database, HardDrive, Minus, PanelLeftClose, PanelLeftOpen, PanelRightOpen, Play, Plus, Radio, Settings2, Square, Thermometer, X, Zap } from "lucide-react";
 import { CameraWall } from "./CameraWall";
 import { BottomMonitorStrip } from "./MonitorStrip";
 import { RightProtocolPanel } from "./ProtocolPanel";
@@ -7,6 +7,7 @@ import { SetupPage } from "./SetupPage";
 import { useArenaStore } from "../store";
 import type { AppPage } from "../types";
 import { previewCommand, startExperimentCommand, stopCommand, windowAction } from "../backend";
+import { mockConnectStimulator } from "../setupBackend";
 
 const PAGE_LABELS: Record<AppPage, string> = { setup: "Setup", run: "Run", review: "Review" };
 
@@ -27,18 +28,20 @@ function CustomTitleBar() {
 }
 
 function TopNavigationBar() {
-  const { page, setPage, appState, saveDir } = useArenaStore();
-  const ready = appState === "idle" ? "Ready" : appState === "previewing" ? "Previewing" : appState === "running" ? "Running" : "Stopping";
+  const { page, setPage, appState, saveDir, protocolName, cameras, selectedBoxId, batchNumber } = useArenaStore();
+  const ready = appState === "idle" ? "Idle" : appState === "previewing" ? "Previewing" : appState === "running" ? "Running" : "Stopping";
+  const activeProtocol = cameras.find((c) => c.boxId === selectedBoxId)?.protocolName ?? protocolName;
+  const canRun = cameras.length > 0;
   return (
     <nav className="top-navigation">
       <div />
       <div className="segmented page-tabs">
         {(Object.keys(PAGE_LABELS) as AppPage[]).map((item) => (
-          <button key={item} className={page === item ? "active" : ""} disabled={item === "review"} onClick={() => setPage(item)}>{PAGE_LABELS[item]}</button>
+          <button key={item} className={page === item ? "active" : ""} disabled={item === "review" || (item === "run" && !canRun)} onClick={() => setPage(item)}>{PAGE_LABELS[item]}</button>
         ))}
       </div>
       {page === "setup" ? <div className="global-summary setup-global-summary"><span><Settings2 size={14} />Settings</span><span className="system-ok-badge"><i className="status-dot ok" />System OK</span></div> : <div className="global-summary">
-          <span className="run-status"><i className="status-dot ok" />{ready}</span><span className="divider" /><span>Protocol: <strong>Fear Conditioning v2</strong></span><span className="divider" /><span className="save-summary">Save to: <strong>{saveDir}</strong></span>
+          <span className="run-status"><i className="status-dot ok" />{ready}</span><span className="divider" /><span>Protocol: <strong>{activeProtocol || "—"}</strong></span><span className="divider" /><span>Batch: <strong>{batchNumber}</strong></span><span className="divider" /><span className="save-summary">Save to: <strong>{saveDir}</strong></span>
         </div>}
     </nav>
   );
@@ -65,7 +68,7 @@ function CameraList({ onCollapse }: { onCollapse: () => void }) {
 }
 
 function PreflightChecklist() {
-  const { cameras, saveDir, system } = useArenaStore();
+  const { cameras, saveDir, system, protocolName, appState } = useArenaStore();
   const stimulator = system.stimulator;
   const stimLabel = stimulator.connected
     ? `Armed · ${stimulator.deviceId ?? "USB"}`
@@ -73,19 +76,24 @@ function PreflightChecklist() {
       ? `Error: ${stimulator.error}`
       : "Not detected";
   const enabled = cameras.filter((camera) => camera.enabled);
-  const rows = [
-    ["Cameras selected", `${enabled.length} / ${cameras.length}`],
-    ["ROI ready", `${enabled.filter((camera) => camera.roi.active).length} / ${enabled.length}`],
-    ["Save folder", saveDir],
-    ["Protocol valid", "Fear Conditioning v2"],
-    ["Stimulator connected", stimLabel],
+  const roiReady = enabled.filter((camera) => camera.roi.active).length;
+  const streaming = appState !== "idle";
+  const rows: Array<[string, string, boolean]> = [
+    ["Cameras selected", `${enabled.length} / ${cameras.length}`, enabled.length > 0],
+    ["ROI ready", `${roiReady} / ${enabled.length}`, roiReady > 0],
+    ["Camera streaming", streaming ? "Connected" : "Disconnected", streaming],
+    ["Save folder", saveDir || "Not set", Boolean(saveDir)],
+    ["Protocol valid", protocolName || "Not assigned", Boolean(protocolName)],
+    ["Stimulator connected", stimLabel, stimulator.connected],
   ];
+  const allPassed = rows.every(([, , passed]) => passed);
   return (
     <section className="preflight card">
-      <div className="preflight-title"><strong>PREFLIGHT CHECKLIST</strong><span className="outline-ok"><Check size={13} /></span></div>
+      <div className="preflight-title"><strong>PREFLIGHT CHECKLIST</strong><span className={allPassed ? "outline-ok" : "outline-fail"}>{allPassed ? <Check size={13} /> : <X size={13} />}</span></div>
       <div className="preflight-rows">
-        {rows.map(([label, value]) => <div className="preflight-row" key={label}><span className="mini-check"><Check size={11} /></span><span><strong>{label}</strong><small>{value}</small></span></div>)}
+        {rows.map(([label, value, passed]) => <div className="preflight-row" key={label}><span className={`mini-check ${passed ? "pass" : "fail"}`}>{passed ? <Check size={11} /> : <X size={11} />}</span><span><strong>{label}</strong><small>{value}</small></span></div>)}
       </div>
+      {!stimulator.connected && cameras.length > 0 && <button className="setup-outline-button" style={{ marginTop: 8, width: "100%" }} onClick={async () => { try { const status = await mockConnectStimulator() as Record<string, unknown>; useArenaStore.getState().updateStimulator({ connected: Boolean(status.connected ?? false), armed: Boolean(status.armed ?? false), calibrated: Boolean(status.calibrated ?? false), deviceId: String(status.device_id ?? "mock") }); } catch { /* ignore */ } }}><Zap size={13} />Mock Connect Stimulator</button>}
     </section>
   );
 }
@@ -97,7 +105,8 @@ function LeftSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: ()
     try {
       if (!connected) await previewCommand();
       else await stopCommand(false);
-      connectPreview();
+      const isTauri = "__TAURI_INTERNALS__" in window;
+      if (!isTauri) connectPreview();
     } catch (error) {
       window.alert(`Preview failed: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -108,7 +117,7 @@ function LeftSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: ()
         <CameraList onCollapse={onToggle} />
         <PreflightChecklist />
         <div className="connect-block">
-          <button className="connect-button" onClick={() => void handlePreview()}><Radio size={19} />{connected ? "Preview Connected" : "Connect Preview"}</button>
+          <button className="connect-button" onClick={() => void handlePreview()}><Radio size={19} />{connected ? "Disconnect Preview" : "Connect Preview"}</button>
           <span><i className={`status-dot ${connected ? "ok" : ""}`} />{connected ? "All cameras streaming" : "Cameras disconnected"}</span>
         </div>
       </>}
@@ -117,14 +126,25 @@ function LeftSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: ()
 }
 
 function RunActions() {
-  const { appState, stop, startExperiment } = useArenaStore();
+  const { appState, stop, startExperiment, nextBatch, batchNumber } = useArenaStore();
+  const stoppingRef = useRef(false);
   const handleStop = async () => {
-    if (appState === "running" && !window.confirm("Stop experiment? The current experiment will end and open behavior intervals will be finalized.")) return;
-    await stopCommand(appState === "running");
-    stop();
+    if (stoppingRef.current) return;
+    stoppingRef.current = true;
+    try {
+      await stopCommand(true);
+      nextBatch();
+    } finally {
+      stoppingRef.current = false;
+    }
   };
   const handleStart = async () => {
     try {
+      const stim = useArenaStore.getState().system.stimulator;
+      if (!stim.armed && stim.deviceId === "mock") {
+        const status = await mockConnectStimulator() as Record<string, unknown>;
+        useArenaStore.getState().updateStimulator({ connected: Boolean(status.connected ?? false), armed: Boolean(status.armed ?? false), calibrated: Boolean(status.calibrated ?? false), deviceId: String(status.device_id ?? "mock") });
+      }
       await startExperimentCommand();
       startExperiment();
     } catch (error) {
@@ -133,8 +153,8 @@ function RunActions() {
   };
   return (
     <div className="run-actions">
-      <button className="secondary-action" disabled={appState === "idle"} onClick={() => void handleStop()}><CircleStop size={18} />Stop</button>
-      {appState !== "running" && <button className="primary-action" disabled={appState !== "previewing"} onClick={() => void handleStart()}><Play size={17} fill="currentColor" />Start Experiment</button>}
+      <button className="secondary-action" disabled={appState !== "running"} onClick={() => void handleStop()}><CircleStop size={18} />Stop</button>
+      {appState !== "running" && <button className="primary-action" disabled={appState !== "previewing"} onClick={() => void handleStart()}><Play size={17} fill="currentColor" />{batchNumber > 1 ? "Start New Batch" : "Start Experiment"}</button>}
     </div>
   );
 }

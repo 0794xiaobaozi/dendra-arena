@@ -101,10 +101,7 @@ class _BehaviorLatch:
     candidate_since: float | None = None
 
     def update(self, motion: float, now: float) -> tuple[str, list[str]]:
-        # UI sensitivity is expressed as 0..1 confidence: a larger threshold
-        # requires less residual motion before entering Freeze.
-        sensitivity = min(max(self.threshold, 0.0), 1.0)
-        motion_cutoff = max((1.0 - sensitivity) * 0.08, 0.001)
+        motion_cutoff = max(self.threshold, 0.001)
         low_motion = motion <= motion_cutoff
         target = "freeze" if low_motion else "moving"
         if self.state == target:
@@ -145,6 +142,14 @@ class CameraRuntime:
         return bool(self._thread and self._thread.is_alive())
 
     def start(self, record_path: Path | None = None) -> None:
+        self.start_async(record_path)
+        try:
+            self.wait_ready()
+        except Exception:
+            self.stop()
+            raise
+
+    def start_async(self, record_path: Path | None = None) -> None:
         if self.running:
             return
         self._record_path = record_path
@@ -154,13 +159,16 @@ class CameraRuntime:
         self._start_error = None
         self._thread = threading.Thread(target=self._capture_loop, name=f"camera-{self.config.box_id}", daemon=True)
         self._thread.start()
-        if not self._ready_event.wait(5.0):
-            self.stop()
+
+    def wait_ready(self, timeout: float = 5.0) -> None:
+        if not self._ready_event.wait(timeout):
             raise TimeoutError(f"camera {self.config.box_id} did not become ready")
         if self._start_error:
-            message = self._start_error
-            self.stop()
-            raise RuntimeError(message)
+            raise RuntimeError(self._start_error)
+
+    def set_recording(self, record_path: Path | None) -> None:
+        self._record_path = record_path
+        self._recording = record_path is not None
 
     def stop(self, timeout: float = 5.0) -> None:
         self._stop_event.set()
@@ -201,23 +209,37 @@ class CameraRuntime:
                 self._ready_event.set()
                 self._event_sink("camera_error", {"boxId": self.config.box_id, "message": self._start_error})
                 return
-            width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH)) or 640
-            height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 480
+            if self.config.frame_width and self.config.frame_height:
+                try:
+                    capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.config.frame_width)
+                    capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.config.frame_height)
+                except Exception:
+                    pass
+            width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH)) or self.config.frame_width or 640
+            height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT)) or self.config.frame_height or 480
             source_fps = capture.get(cv2.CAP_PROP_FPS) or 30.0
-            if self._record_path:
-                self._record_path.parent.mkdir(parents=True, exist_ok=True)
-                writer = cv2.VideoWriter(str(self._record_path), cv2.VideoWriter_fourcc(*"mp4v"), source_fps, (width, height))
-                if not writer.isOpened():
-                    raise RuntimeError(f"Unable to create video writer: {self._record_path}")
+            writer: Any = None
+            writer_initialized = False
             self._ready_event.set()
             while not self._stop_event.is_set():
+                if not writer_initialized and self._recording and self._record_path:
+                    self._record_path.parent.mkdir(parents=True, exist_ok=True)
+                    writer = cv2.VideoWriter(str(self._record_path), cv2.VideoWriter_fourcc(*"mp4v"), source_fps, (width, height))
+                    if not writer.isOpened():
+                        self._event_sink("camera_error", {"boxId": self.config.box_id, "message": f"Unable to create video writer: {self._record_path}"})
+                    writer_initialized = True
+                if writer_initialized and not self._recording:
+                    if writer is not None and writer.isOpened():
+                        writer.release()
+                    writer = None
+                    writer_initialized = False
                 ok, frame = capture.read()
                 if not ok or frame is None:
                     self._event_sink("camera_error", {"boxId": self.config.box_id, "message": "Frame read failed"})
                     break
                 with self._frame_lock:
                     self._latest_frame = frame.copy()
-                if writer is not None:
+                if writer is not None and writer.isOpened():
                     writer.write(frame)
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 motion = 0.0 if previous_gray is None else float(np.mean(cv2.absdiff(gray, previous_gray)) / 255.0)

@@ -1,8 +1,9 @@
 schema_version: 1
 
 protocol:
-  id: example_protocol
-  name: 示例-1分钟单次刺激
+  id: example_single_shock
+  name: Example — Single Shock at 60s
+  description: Example — single 50s shock at 60s at 1.0mA
   total_duration_sec: 120
   shocks:
     - time_sec: 60

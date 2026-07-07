@@ -29,6 +29,8 @@ class CameraConfig:
     enabled: bool = True
     roi: RoiConfig = field(default_factory=RoiConfig)
     freeze_strategy: FreezeStrategy = field(default_factory=FreezeStrategy)
+    frame_width: int = 1920
+    frame_height: int = 1080
 
 
 @dataclass(frozen=True)
@@ -48,6 +50,7 @@ class SessionConfig:
     total_duration_sec: float = 0.0
     save_video: bool = True
     enable_stimulator: bool = False
+    batch_number: int = 1
 
 
 @dataclass
@@ -87,6 +90,8 @@ def parse_camera(value: dict[str, Any]) -> CameraConfig:
         enabled=bool(value.get("enabled", True)),
         roi=_roi(value.get("roi")),
         freeze_strategy=_strategy(value.get("freezeStrategy")),
+        frame_width=int(value.get("frameWidth", 1920)),
+        frame_height=int(value.get("frameHeight", 1080)),
     )
 
 
@@ -106,6 +111,7 @@ def parse_session(value: dict[str, Any]) -> SessionConfig:
     return SessionConfig(
         session_id=str(value["sessionId"]),
         save_dir=str(value["saveDir"]),
+        batch_number=int(value.get("batchNumber", 1)),
         cameras=cameras,
         shocks=sorted(shocks, key=lambda item: item.time_sec),
         total_duration_sec=float(value.get("totalDurationSec", 0)),

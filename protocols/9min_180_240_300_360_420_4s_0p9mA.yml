@@ -1,8 +1,9 @@
 schema_version: 1
 
 protocol:
-  id: 9min_180_240_300_360_420_4s_1p0mA
-  name: 9min-180/240/300/360/420s各4s电击(1.0mA)
+  id: shocks_5x_4s_1ma
+  name: 5 Shocks at 180/240/300/360/420s
+  description: 9min protocol — 4s shocks at 180, 240, 300, 360, 420s at 1.0mA
   total_duration_sec: 540
   shocks:
     - time_sec: 180

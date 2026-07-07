@@ -1,8 +1,9 @@
 schema_version: 1
 
 protocol:
-  id: timed_3min_every20s_10s_1p0mA_total10min
-  name: 3min起-每20s电击10s(1.0mA)-总时长10min
+  id: timed_shocks_20s_10min
+  name: Timed Shocks Every 20s (10min)
+  description: Starting at 3min, shock every 20s for 10s at 1.0mA, total 10min
   total_duration_sec: 600
   shocks:
     - time_sec: 180

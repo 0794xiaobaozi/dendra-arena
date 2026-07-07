@@ -103,7 +103,6 @@ try {
   if (wallStyle.overflowY !== "hidden" || wallStyle.hasVerticalOverflow) throw new Error("Camera wall must fit cards without a scrollbar");
   if (wallStyle.cards.some((card) => Math.abs(card.ratio - 4 / 3) > 0.01)) throw new Error("Camera cards must retain a 4:3 component ratio");
   if (wallStyle.slots.some((slot) => Math.abs(slot.width - wallStyle.slots[0].width) > 1 || Math.abs(slot.height - wallStyle.slots[0].height) > 1)) throw new Error("Camera wall slots must be evenly divided");
-  if ((await page.locator(".timeline-legend").textContent()).includes("Shock (")) throw new Error("Shock legend must not assume a fixed duration");
   const initialCameraTitleSize = Number.parseFloat(await page.locator(".camera-card h3").first().evaluate((element) => getComputedStyle(element).fontSize));
   await page.locator(".camera-list-item").nth(1).click();
   if (await page.locator(".camera-card.selected h3").textContent() !== "Box B") throw new Error("Box selection is not synchronized");

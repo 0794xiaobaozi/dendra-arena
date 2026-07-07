@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import random
 import re
 from pathlib import Path
@@ -10,6 +11,8 @@ import yaml
 
 
 PROTOCOL_ID = re.compile(r"^[a-z0-9_]+$")
+_REGISTRY_FILE = "protocol_registry.json"
+_SUMMARY_KEYS = ("id", "name", "version", "totalDurationSec", "hash", "path")
 
 
 def _canonical_hash(value: dict[str, Any]) -> str:
@@ -88,13 +91,51 @@ def validate_protocol(protocol: dict[str, Any]) -> dict[str, Any]:
 class ProtocolRegistry:
     def __init__(self, root: Path):
         self.root = root.resolve()
+        self._registry: dict[str, dict[str, Any]] = {}
+        self._load_registry()
+        self._sync_filesystem()
+
+    @property
+    def _registry_path(self) -> Path:
+        return self.root / _REGISTRY_FILE
 
     def _path(self, protocol_id: str) -> Path:
         if not PROTOCOL_ID.fullmatch(protocol_id):
             raise ValueError("invalid protocol id")
         return self.root / f"{protocol_id}.yml"
 
-    def load_path(self, path: Path) -> dict[str, Any]:
+    def _read_registry_json(self) -> dict[str, Any]:
+        if not self._registry_path.is_file():
+            return {"registry_version": 1, "protocols": {}}
+        try:
+            data = json.loads(self._registry_path.read_text(encoding="utf-8"))
+            if isinstance(data, dict) and isinstance(data.get("protocols"), dict):
+                return data
+        except Exception:
+            pass
+        return {"registry_version": 1, "protocols": {}}
+
+    def _write_registry_json(self, data: dict[str, Any]) -> None:
+        self.root.mkdir(parents=True, exist_ok=True)
+        temp = self._registry_path.with_suffix(self._registry_path.suffix + ".tmp")
+        temp.write_text(json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+        temp.replace(self._registry_path)
+
+    def _load_registry(self) -> None:
+        data = self._read_registry_json()
+        self._registry = {}
+        for entry in data.get("protocols", {}).values():
+            if isinstance(entry, dict) and entry.get("id"):
+                self._registry[entry["id"]] = entry
+
+    def _make_summary(self, protocol: dict[str, Any], path: Path) -> dict[str, Any]:
+        return {key: protocol[key] for key in _SUMMARY_KEYS} | {
+            "shockCount": len(protocol["shocks"]),
+            "validationStatus": "valid" if protocol["validation"]["valid"] else "error",
+            "warnings": protocol["validation"]["warnings"],
+        }
+
+    def _load_path(self, path: Path) -> dict[str, Any]:
         document = yaml.safe_load(path.read_text(encoding="utf-8"))
         if not isinstance(document, dict):
             raise ValueError(f"protocol file must contain an object: {path.name}")
@@ -102,28 +143,61 @@ class ProtocolRegistry:
         validation = validate_protocol(protocol)
         return {**protocol, "validation": validation, "path": str(path), "hash": validation["hash"]}
 
-    def list(self) -> list[dict[str, Any]]:
-        summaries = []
+    def load_path(self, path: Path) -> dict[str, Any]:
+        return self._load_path(path)
+
+    def _sync_filesystem(self) -> None:
         if not self.root.exists():
-            return summaries
-        for path in sorted((*self.root.glob("*.yml"), *self.root.glob("*.yaml"))):
+            self._registry.clear()
+            return
+        disk_stems: set[str] = set()
+        for extension in ("*.yml", "*.yaml"):
+            for path in self.root.glob(extension):
+                disk_stems.add(path.stem)
+        stale_ids = [pid for pid, entry in self._registry.items() if Path(entry["path"]).stem not in disk_stems]
+        for pid in stale_ids:
+            del self._registry[pid]
+        known_stems = {Path(entry["path"]).stem for entry in self._registry.values()}
+        new_stems = disk_stems - known_stems
+        if not new_stems:
+            return
+        for stem in new_stems:
+            yml_path = self.root / f"{stem}.yml"
+            if not yml_path.exists():
+                yml_path = self.root / f"{stem}.yaml"
+            if not yml_path.exists():
+                continue
             try:
-                protocol = self.load_path(path)
-                summaries.append({key: protocol[key] for key in ("id", "name", "version", "totalDurationSec", "hash", "path")} | {"shockCount": len(protocol["shocks"]), "validationStatus": "valid" if protocol["validation"]["valid"] else "error", "warnings": protocol["validation"]["warnings"]})
+                protocol = self._load_path(yml_path)
+                pid = protocol["id"]
+                self._registry[pid] = self._make_summary(protocol, yml_path)
             except Exception as exc:
-                summaries.append({"id": path.stem, "name": path.stem, "version": "unknown", "totalDurationSec": 0, "shockCount": 0, "validationStatus": "error", "warnings": [], "error": str(exc), "path": str(path)})
-        return summaries
+                self._registry[stem] = {
+                    "id": stem, "name": stem, "version": "unknown",
+                    "totalDurationSec": 0, "shockCount": 0, "validationStatus": "error",
+                    "warnings": [], "error": str(exc), "path": str(yml_path),
+                }
+        if stale_ids or new_stems:
+            self._flush_registry()
+
+    def _flush_registry(self) -> None:
+        self._write_registry_json({"registry_version": 1, "protocols": self._registry})
+
+    def list(self) -> list[dict[str, Any]]:
+        self._sync_filesystem()
+        return list(self._registry.values())
 
     def load(self, protocol_id: str) -> dict[str, Any]:
-        direct = self._path(protocol_id)
-        candidates = [direct, direct.with_suffix(".yaml")]
-        for path in candidates:
-            if path.exists():
-                return self.load_path(path)
-        for summary in self.list():
-            if summary["id"] == protocol_id:
-                return self.load_path(Path(summary["path"]))
-        raise FileNotFoundError(f"protocol not found: {protocol_id}")
+        self._sync_filesystem()
+        entry = self._registry.get(protocol_id)
+        if not entry:
+            raise FileNotFoundError(f"protocol not found: {protocol_id}")
+        path = Path(entry["path"])
+        if not path.exists():
+            del self._registry[protocol_id]
+            self._flush_registry()
+            raise FileNotFoundError(f"protocol file missing: {path}")
+        return self._load_path(path)
 
     def save(self, protocol: dict[str, Any]) -> dict[str, Any]:
         normalized = normalize_protocol(protocol)
@@ -141,7 +215,10 @@ class ProtocolRegistry:
         temporary = path.with_suffix(path.suffix + ".tmp")
         temporary.write_text(yaml.safe_dump(document, allow_unicode=True, sort_keys=False), encoding="utf-8")
         temporary.replace(path)
-        return self.load_path(path)
+        protocol = self._load_path(path)
+        self._registry[normalized["id"]] = self._make_summary(protocol, path)
+        self._flush_registry()
+        return protocol
 
 
 def generate_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:

@@ -95,7 +95,8 @@ export async function validateRoi(roi: Record<string, unknown>) {
 }
 
 export async function startSetupCameraPreview(boxId: string, device: CameraDeviceModel) {
-  return sendBackendCommand("start_preview", { cameras: [{ boxId, label: boxId, deviceId: device.deviceId, deviceIndex: device.deviceIndex, enabled: true, roi: { shape: "rectangle", points: [] }, freezeStrategy: { threshold: 0.65, minDurationSec: 1 } }] });
+  const res = device.resolutionOptions[0] ?? { width: 1920, height: 1080, fps: 30 };
+  return sendBackendCommand("start_preview", { cameras: [{ boxId, label: boxId, deviceId: device.deviceId, deviceIndex: device.deviceIndex, enabled: true, roi: { shape: "rectangle", points: [] }, freezeStrategy: { threshold: 0.65, minDurationSec: 1 }, frameWidth: res.width, frameHeight: res.height }] });
 }
 
 export async function stopSetupCameraPreview() {
@@ -205,4 +206,8 @@ export async function sendRawStimPacket(packetHex: string) {
 
 export async function sendRawCtrl(requestType: string, request: string, value: string, index: string) {
   return sendBackendCommand("send_raw_ctrl", { requestType, request, value, index });
+}
+
+export async function mockConnectStimulator() {
+  return sendBackendCommand("mock_connect_stimulator");
 }

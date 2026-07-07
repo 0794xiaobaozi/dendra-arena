@@ -49,13 +49,14 @@ class BackendApplication:
             "arm_stimulator": self._arm_stimulator,
             "disarm_stimulator": self._disarm_stimulator,
             "stimulator_test": self._stimulator_test,
+            "mock_connect_stimulator": self._mock_connect_stimulator,
             "send_raw_packet": self._send_raw_packet,
             "send_raw_ctrl": self._send_raw_ctrl,
             "get_state": self._get_state,
             "start_preview": self._start_preview,
             "stop_preview": self._stop,
             "start_experiment": self._start_experiment,
-            "stop_experiment": self._stop,
+            "stop_experiment": self._stop_recording,
             "capture_snapshot": self._snapshot,
         }
         try:
@@ -141,6 +142,9 @@ class BackendApplication:
     def _stimulator_test(self, payload: dict[str, Any]) -> dict[str, Any]:
         return self._stimulator.trigger(float(payload["currentMA"]), float(payload["durationSeconds"]), confirmed=bool(payload.get("confirmed", False)))
 
+    def _mock_connect_stimulator(self, _payload: dict[str, Any]) -> dict[str, Any]:
+        return self._stimulator.mock_connect().to_payload()
+
     def _get_state(self, payload: dict[str, Any]) -> dict[str, Any]:
         save_dir = Path(payload.get("saveDir", Path.home()))
         probe = save_dir
@@ -167,6 +171,10 @@ class BackendApplication:
 
     def _stop(self, _payload: dict[str, Any]) -> dict[str, Any]:
         self._runner.stop()
+        return {"status": self._runner.state}
+
+    def _stop_recording(self, _payload: dict[str, Any]) -> dict[str, Any]:
+        self._runner.stop_recording()
         return {"status": self._runner.state}
 
     def _snapshot(self, payload: dict[str, Any]) -> dict[str, Any]:
